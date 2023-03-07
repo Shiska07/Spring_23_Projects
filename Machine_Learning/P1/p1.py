@@ -156,15 +156,18 @@ def train_softmax_regressor(X_train, Y_train, alpha, epochs):
     # get no of classes/labels
     n_class, __ = Y_train.shape
     
-    # get paramater matrix, first column will have a bias of 1
-    model_params = np.ones((n_class, n_feat+1))
-    model_params[:, 1::] = np.random.randn(n_class, n_feat)
+    # get paramater matrix
+    model_params = np.random.rand(n_class, n_feat+1)
     
     for i in range(epochs):
-        for idx in range(n_samples):
+
+        # initialize gradient vector for each epoch
+        gradient_mtx = np.zeros((n_class, n_feat+1))
+
+        for j in range(n_samples):
             
             # pick a sample randomly
-            # idx = np.random.randint(0, n_samples)
+            idx = np.random.randint(0, n_samples)
             x_sample = X_train[:,idx]
             y_sample = Y_train[:,idx].reshape(Y_train.shape[0], 1)
             
@@ -176,10 +179,11 @@ def train_softmax_regressor(X_train, Y_train, alpha, epochs):
             x_sample_b[1::] = x_sample.reshape(x_sample.shape[0], 1)
 
             # calculate gradient matrix
-            gradient_mtx = np.dot((y_sample - y_pred), x_sample_b.transpose())
+            sample_gradient = np.dot((y_sample - y_pred), x_sample_b.transpose())
+            gradient_mtx = gradient_mtx + sample_gradient
             
-            # adjust parameter values using stochastic gradient ascent
-            model_params = model_params + alpha*gradient_mtx
+        # adjust parameter values using batch gradient ascent
+        model_params = model_params + alpha*gradient_mtx
             
     # return final parameter matrix
     return model_params
@@ -220,13 +224,13 @@ def leave_one_out_evaluation(X_eval, Y_eval, alpha, epochs):
     # return predictions and accuracy
     return Y_pred, acc
 
-fname_eval = '3_eval.txt'
+fname_eval = 'Data/3_eval.txt'
 
 X_eval, Y_eval = get_X_Y_arrays(fname_eval)
 
-# X_eval = np.delete(X_eval, 3, axis = 0)
+X_eval = np.delete(X_eval, 3, axis = 0)
 # model_params, label_idx_dict = train_softmax_regressor(X_train, Y_train, 0.0001, 1)
-Y_pred, acc = leave_one_out_evaluation(X_eval, Y_eval, 0.00001, 1)
+Y_pred, acc = leave_one_out_evaluation(X_eval, Y_eval, 0.01, 15)
 
 
 
