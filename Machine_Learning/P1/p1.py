@@ -157,17 +157,17 @@ def train_softmax_regressor(X_train, Y_train, alpha, epochs):
     n_class, __ = Y_train.shape
     
     # get paramater matrix
-    model_params = np.random.rand(n_class, n_feat+1)
+    model_params = np.random.uniform(-1, 1, size = (n_class, n_feat+1))
     
     for i in range(epochs):
 
         # initialize gradient vector for each epoch
         gradient_mtx = np.zeros((n_class, n_feat+1))
 
-        for idx in range(n_samples):
+        for j in range(n_samples):
             
             # pick a sample randomly
-            #idx = np.random.randint(0, n_samples)
+            idx = np.random.randint(0, n_samples)
             x_sample = X_train[:,idx]
             y_sample = Y_train[:,idx].reshape(Y_train.shape[0], 1)
             
@@ -229,9 +229,9 @@ fname_eval = 'Data/3_eval.txt'
 
 X_eval, Y_eval = get_X_Y_arrays(fname_eval)
 
-# X_eval = np.delete(X_eval, 3, axis = 0)
+X_eval = np.delete(X_eval, 3, axis = 0)
 # model_params, label_idx_dict = train_softmax_regressor(X_train, Y_train, 0.0001, 1)
-Y_pred, acc = leave_one_out_evaluation(X_eval, Y_eval, 0.001, 1)
+Y_pred, acc = leave_one_out_evaluation(X_eval, Y_eval, 0.001, 100)
 
 
 
