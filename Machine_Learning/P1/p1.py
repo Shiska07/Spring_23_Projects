@@ -164,14 +164,15 @@ def train_softmax_regressor(X_train, Y_train, alpha, epochs):
         # initialize gradient vector for each epoch
         gradient_mtx = np.zeros((n_class, n_feat+1))
 
-        for j in range(n_samples):
+        for idx in range(n_samples):
             
             # pick a sample randomly
-            idx = np.random.randint(0, n_samples)
+            #idx = np.random.randint(0, n_samples)
             x_sample = X_train[:,idx]
             y_sample = Y_train[:,idx].reshape(Y_train.shape[0], 1)
             
             # get prediction value and adjust weights
+            # bias will be added to the sample in the function 
             y_pred = get_sample_prediction_values(x_sample, model_params)
 
             # add bias to x_sample before calculating gradient
@@ -184,7 +185,7 @@ def train_softmax_regressor(X_train, Y_train, alpha, epochs):
             
         # adjust parameter values using batch gradient ascent
         model_params = model_params + alpha*gradient_mtx
-            
+        
     # return final parameter matrix
     return model_params
 
@@ -228,9 +229,9 @@ fname_eval = 'Data/3_eval.txt'
 
 X_eval, Y_eval = get_X_Y_arrays(fname_eval)
 
-X_eval = np.delete(X_eval, 3, axis = 0)
+# X_eval = np.delete(X_eval, 3, axis = 0)
 # model_params, label_idx_dict = train_softmax_regressor(X_train, Y_train, 0.0001, 1)
-Y_pred, acc = leave_one_out_evaluation(X_eval, Y_eval, 0.01, 15)
+Y_pred, acc = leave_one_out_evaluation(X_eval, Y_eval, 0.001, 1)
 
 
 
