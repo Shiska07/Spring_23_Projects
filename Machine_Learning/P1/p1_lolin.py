@@ -160,14 +160,13 @@ def train_model_lolr(X_train, Y_train, x_point, epochs, alpha, gamma):
     
         # set updated parameters as new parameters  
         model_params = updated_params.copy()
-
         
     # return final parameter vector
     return model_params
 
 
 # returns predicted values for a given test data
-def get_predictions_lolr(X_train, Y_train, X_test, Y_test, epochs, alpha, gamma):
+def get_predictions_lolr(X_train, Y_train, X_test, epochs, alpha, gamma):
     
     # save number of test samples
     n_feat, n_test_samples = X_test.shape
@@ -190,11 +189,9 @@ def get_predictions_lolr(X_train, Y_train, X_test, Y_test, epochs, alpha, gamma)
         y_sample_pred = get_y_pred_value_lolr(x_test_sample, model_params)
         predictions.append(y_sample_pred)
 
-    Y_pred = np.array(predictions, dtype = float, ndmin = 2)
-
-    avg_squared_err = get_avg_squared_error(Y_pred, Y_test)
+    Y_pred = np.array(predictions, dtype = float, ndmin = 2)  
         
-    return Y_pred, avg_squared_err
+    return Y_pred
 
 # training and test filenames
 fname_train = "Data/1_b_c_2_train.txt"
@@ -213,4 +210,5 @@ for epoch in range(1, epochs+1):
     Y_train_pred, avg_train_squared_err = get_predictions_lolr(X_train, Y_train, X_train, Y_train, epoch, alpha, gamma)
     training_err_over_epochs.append(avg_train_squared_err)  
 
-Y_test_pred, avg_test_squared_err = get_predictions_lolr(X_train, Y_train, X_test, Y_test, epochs, alpha, gamma)
+Y_test_pred = get_predictions_lolr(X_train, Y_train, X_test, epochs, alpha, gamma)
+avg_squared_err = get_avg_squared_error(Y_test_pred, Y_test)
