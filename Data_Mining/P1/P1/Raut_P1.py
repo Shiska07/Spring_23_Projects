@@ -65,9 +65,7 @@ vocab_list = get_vocab(docs, query)
 print(f'The vocabulary list consists of {len(vocab_list)} items.\n')
 
 # returns tf vector for a given document/query string
-def get_tf_count_vector(string):
-    # create tokens for each document
-    str_tokens = get_tokens(string)
+def get_tf_count_vector(str_tokens):
         
     # stores tf values for a the given string
     str_tf_vec = []
@@ -93,7 +91,7 @@ tokens_for_each_file['query'] = get_tokens(query)
 '''
 RAW DOCUMENT FREQUENCY(df) CALCULATION
 'raw_df' is a dictionary that stores raw df of each token
-in the vocabulary
+in the vocabulary. Document frequency is specific to a certain term
 '''
 raw_df = {}
 for token in vocab_list:
@@ -102,6 +100,23 @@ for token in vocab_list:
         if token in v:
             raw_df[token] = raw_df[token] + 1
 
+
+'''
+RAW TERM FREQUENCY CALCULATIOM
+'raw_tf' is a dictionary containing count vector for each file(including the query).
+Term frequency is specific to a specific term for a specific file.
+'''
+raw_tf = {}
+for filename, token_list in tokens_for_each_file.items():
+    raw_tf[filename] = get_tf_count_vector(token_list)
+
+
+'''
+VECTOR SPACE MODEL: lnc.ltc(ddd.qqq) weighing scheme
+1) weighted tf for both docs and query
+2) normal df for docs, weighted df for query
+3) cosine normalization for both docs and query
+'''
 
 # returns inverse document frequency(idf) of a token 
 # using the entire vocabulary and collection
