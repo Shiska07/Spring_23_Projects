@@ -93,12 +93,12 @@ RAW DOCUMENT FREQUENCY(df) CALCULATION
 'raw_df' is a dictionary that stores raw df of each token
 in the vocabulary. Document frequency is specific to a certain term
 '''
-raw_df = {}
+raw_dfs = {}
 for token in vocab_list:
-    raw_df[token] = 0
+    raw_dfs[token] = 0
     for k, v in tokens_for_each_file.items():
         if token in v:
-            raw_df[token] = raw_df[token] + 1
+            raw_dfs[token] = raw_dfs[token] + 1
 
 
 '''
@@ -106,9 +106,9 @@ RAW TERM FREQUENCY CALCULATIOM
 'raw_tf' is a dictionary containing count vector for each file(including the query).
 Term frequency is specific to a specific term for a specific file.
 '''
-raw_tf = {}
+raw_tfs = {}
 for filename, token_list in tokens_for_each_file.items():
-    raw_tf[filename] = get_tf_count_vector(token_list)
+    raw_tfs[filename] = get_tf_count_vector(token_list)
 
 
 '''
@@ -118,15 +118,39 @@ VECTOR SPACE MODEL: lnc.ltc(ddd.qqq) weighing scheme
 3) cosine normalization for both docs and query
 '''
 
-# returns inverse document frequency(idf) of a token 
-# using the entire vocabulary and collection
+# 1) weighted tf for both docs and query
+weighted_tfs = {}
+for filename, tf_vector in raw_tfs.items():
+
+    # get a list of weighted tf for each file
+    w_tf = []
+    for raw_tf in tf_vector:
+        if raw_tf > 0:
+            val = float(1 + math.log(raw_tf))
+        else: 
+            val = 0
+        w_tf.append(val) 
+    weighted_tfs[filename] = w_tf
+
+
+# 2) weighted idf for query
 def getidf(token):
     
-    # total no. of documents in collection
+    # N = total no. of documents in collection
     N = len(docs)
 
+    if token in vocab_list:
+        # calculate weighted document frequency
+        w_idf = math.log(N/raw_dfs[token])
+    else:
+        w_idf = -1
 
-    pass
+    return w_idf
+
+# create a dictionary containing weighted idfs for each token
+weighted_idfs = {}
+for token in vocab_list:
+    weighted_idfs[token] = getidf(token)
 
 # returns the tf-tdf weight of a specific token w.r.t a specific document
 def getweight(filename, token):
