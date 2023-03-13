@@ -14,7 +14,7 @@ filenames = []
 docs = []
 
 # read and store files
-corpusroot = './US_Inaugural_Addresses'
+corpusroot = './US_Inaugural_Addresses_s'
 for filename in os.listdir(corpusroot):
     if filename.startswith('0') or filename.startswith('1'):
         file = open(os.path.join(corpusroot, filename), "r", encoding='windows-1252')
@@ -27,7 +27,9 @@ for filename in os.listdir(corpusroot):
 
 # Get query string
 # query = str(input('Type search query:'))
-query = 'pleasing people and institutions'
+query = 'The Confederation which was early felt to be necessary was prepared from the models of the Batavian and Helvetic confederacies, the only examples which remain with any detail and precision in history, and certainly the only ones which the people at large had ever considered'
+query = query.lower()
+
 
 # returns a list of tokens after performing tokenization, stopword removal and stemming
 def get_tokens(qstring):
@@ -55,7 +57,7 @@ def get_vocab(collection, query):
     all_vocab_tokens = get_tokens(vocab_str)
     unique_vocab_tokens = list(set(all_vocab_tokens))
 
-    return 
+    return unique_vocab_tokens
 
 
 # create vocabulary list
@@ -79,13 +81,14 @@ def get_tf_count_vector(string):
 '''
 FiILE & QUERY TOKENIZATION
 Convert all document strings into tokens for df counting.
-'tokens_for_each_file' is a 2D list that contains tokens for all individual files including the query
+'tokens_for_each_file' is a dictionary that contains tokens for all individual files(key) including the query
 '''
-tokens_for_each_file = []
-for doc in docs:
-    tokens_for_each_file.append(get_tokens(doc))
+tokens_for_each_file = {}
+for i, doc in enumerate(docs):
+    tokens_for_each_file[filenames[i]] = get_tokens(doc)
 # append tokens for the query at the end
-tokens_for_each_file.append(get_tokens(query))
+
+tokens_for_each_file['query'] = get_tokens(query)
 
 '''
 RAW DOCUMENT FREQUENCY(df) CALCULATION
@@ -95,8 +98,8 @@ in the vocabulary
 raw_df = {}
 for token in vocab_list:
     raw_df[token] = 0
-    for tokens_list in tokens_for_each_file:
-        if token in tokens_list:
+    for k, v in tokens_for_each_file.items():
+        if token in v:
             raw_df[token] = raw_df[token] + 1
 
 
