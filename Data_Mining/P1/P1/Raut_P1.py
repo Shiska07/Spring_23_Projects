@@ -101,37 +101,30 @@ raw_tfs = {}
 for filename, token_list in tokens_for_each_file.items():
     raw_tfs[filename] = get_tf_count_vector(token_list)
 
-
 '''
 VECTOR SPACE MODEL: lnc.ltc(ddd.qqq) weighing scheme
 1) weighted tf for both docs and query
-2) raw df for docs, weighted df for query
+2) raw df for docs, weighted idf for query
 3) cosine normalization for both docs and query
 '''
 
-# calculate weighted_df for docs
-weighted_tfs = {}
-for filename, tf_vector in raw_tfs.items():
+def get_weighted_tf(raw_tf_vec):
 
-    # get a list of weighted tf for each file
-    w_tf = []
-    for raw_tf in tf_vector:
+    # list to store weighted tf
+    w_tf_vec = []
+    for raw_tf in raw_tf_vec:
         if raw_tf > 0:
             val = float(1 + math.log(raw_tf))
         else: 
             val = 0
-        w_tf.append(val) 
-    weighted_tfs[filename] = w_tf
+        w_tf_vec.append(val)
+    
+    return w_tf_vec
 
-
-# calculate tfidf for docs
-tfidf_docs = {}
-for filename, tf_vector in weighted_tfs.items():
-    tfidf_vec = []
-    for token, idf in raw_dfs.items():  # idf values
-        for tf in tf_vector:            # tf value
-            tfidf_vec.append(tf*idf)
-    tfidf_docs[filename] = tfidf_vec
+# calculate weighted_df for docs
+weighted_tfs = {}
+for filename, raw_tf_vec in raw_tfs.items(): 
+    weighted_tfs[filename] = get_weighted_tf(raw_tf_vec)
 
 
 # normalizes components of a list
@@ -144,6 +137,25 @@ def get_normalized_vec(tfidf_vec):
     norm_tfidf_vec = [(tfidf/sqrt_sum_of_sq) for tfidf in tfidf_vec]
 
     return norm_tfidf_vec
+
+
+# returns tfidf vector givrn tf vector and idf vector
+def get_tfidf(tf_vec, idf_vec):
+
+    tfidf_vec = []
+    for idf in idf_vec:
+        for tf in tf_vec:
+            tfidf_vec.append(tf*idf)
+
+    return tfidf_vec
+
+# calculate tfidf for docs
+tfidf_docs = {}
+for filename, tf_vec in weighted_tfs.items():
+
+    # store normalized tfidf vector
+    tfidf_vec = get_tfidf(tf_vec, raw_dfs.values())
+    tfidf_docs[filename] = get_normalized_vec(tfidf_vec)
 
 
 # calculated the dot product of two vectors
@@ -189,6 +201,7 @@ def getweight(filename, token):
 
     return tfidf_val
 
+
 # returns the name and score of the highest matching document
 def query(qstring):
 
@@ -199,9 +212,28 @@ def query(qstring):
     # initialize dict to store similarity values
     cosine_sim = {}
 
-    for filename in filenames:
-        tfidf_vec = []
+    # get weighted tf vector for query
+    raw_tf_query = get_tf_count_vector(qstring_tokens)
+    tf_query_vec = get_weighted_tf(raw_tf_query)
 
+    # get weighted idfs list for query
+    w_idf_vec = weighted_idfs.values()
+
+    # get tfidf vec
+    tfidf_query_vec = get_tfidf(tf_query_vec, w_idf_vec)
+    # normalize vec
+    tfidf_query_vec = get_normalized_vec(tfidf_query_vec)
+    
+    for filename in filenames:
+
+        # calculate cosine similarity of query with all docs
+        cosine_sim[filename] = get_cosine_similarity(tfidf_docs[filename], tfidf_query_vec)
+
+    # get filename with maximum similarity
+    max_sim_fname = max(cosine_sim)
+    max_sim_val = cosine_sim(max_sim_fname)
+
+    return (max_sim_fname, max_sim_val)
 
 qstring = 'The Confederation which was early felt to be necessary was prepared from the models of the Batavian and Helvetic confederacies, the only examples which remain with any detail and precision in history, and certainly the only ones which the people at large had ever considered'
 
