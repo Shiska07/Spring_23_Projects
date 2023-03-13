@@ -25,12 +25,6 @@ for filename in os.listdir(corpusroot):
         docs.append(doc)
 
 
-# Get query string
-# query = str(input('Type search query:'))
-query = 'The Confederation which was early felt to be necessary was prepared from the models of the Batavian and Helvetic confederacies, the only examples which remain with any detail and precision in history, and certainly the only ones which the people at large had ever considered'
-query = query.lower()
-
-
 # returns a list of tokens after performing tokenization, stopword removal and stemming
 def get_tokens(qstring):
     
@@ -49,9 +43,8 @@ def get_tokens(qstring):
 
 
 # creates a vocabulary list using collection and search query
-def get_vocab(collection, query):
+def get_vocab(collection):
     vocab_str = ''.join(collection)
-    vocab_str = vocab_str + query
     
     # tokenize vocab string
     all_vocab_tokens = get_tokens(vocab_str)
@@ -61,7 +54,7 @@ def get_vocab(collection, query):
 
 
 # create vocabulary list
-vocab_list = get_vocab(docs, query)
+vocab_list = get_vocab(docs)
 print(f'The vocabulary list consists of {len(vocab_list)} items.\n')
 
 # returns tf vector for a given document/query string
@@ -77,16 +70,14 @@ def get_tf_count_vector(str_tokens):
 
 
 '''
-FiILE & QUERY TOKENIZATION
+DOCUMENT TOKENIZATION
 Convert all document strings into tokens for df counting.
-'tokens_for_each_file' is a dictionary that contains tokens for all individual files(key) including the query
+'tokens_for_each_file' is a dictionary that contains tokens for all individual files(key)
 '''
 tokens_for_each_file = {}
 for i, doc in enumerate(docs):
     tokens_for_each_file[filenames[i]] = get_tokens(doc)
-# append tokens for the query at the end
 
-tokens_for_each_file['query'] = get_tokens(query)
 
 '''
 RAW DOCUMENT FREQUENCY(df) CALCULATION
@@ -103,8 +94,8 @@ for token in vocab_list:
 
 '''
 RAW TERM FREQUENCY CALCULATIOM
-'raw_tf' is a dictionary containing count vector for each file(including the query).
-Term frequency is specific to a specific term for a specific file.
+'raw_tf' is a dictionary containing count vector for each doc.
+Term frequency is specific to a specific term for a specific doc.
 '''
 raw_tfs = {}
 for filename, token_list in tokens_for_each_file.items():
@@ -114,11 +105,11 @@ for filename, token_list in tokens_for_each_file.items():
 '''
 VECTOR SPACE MODEL: lnc.ltc(ddd.qqq) weighing scheme
 1) weighted tf for both docs and query
-2) normal df for docs, weighted df for query
+2) raw df for docs, weighted df for query
 3) cosine normalization for both docs and query
 '''
 
-# 1) weighted tf for both docs and query
+# calculate weighted_df for docs
 weighted_tfs = {}
 for filename, tf_vector in raw_tfs.items():
 
@@ -133,7 +124,40 @@ for filename, tf_vector in raw_tfs.items():
     weighted_tfs[filename] = w_tf
 
 
-# 2) weighted idf for query
+# calculate tfidf for docs
+tfidf_docs = {}
+for filename, tf_vector in weighted_tfs.items():
+    tfidf_vec = []
+    for token, idf in raw_dfs.items():  # idf values
+        for tf in tf_vector:            # tf value
+            tfidf_vec.append(tf*idf)
+    tfidf_docs[filename] = tfidf_vec
+
+
+# normalizes components of a list
+def get_normalized_vec(tfidf_vec):
+
+    tfidf_sq = [n**2 for n in tfidf_vec]    # square each item
+    sum_of_sq = sum(tfidf_sq)               # sum of squares
+    sqrt_sum_of_sq = math.sqrt(sum_of_sq)   # normalizing factor
+
+    norm_tfidf_vec = [(tfidf/sqrt_sum_of_sq) for tfidf in tfidf_vec]
+
+    return norm_tfidf_vec
+
+
+# calculated the dot product of two vectors
+def get_cosine_similarity(v1, v2):
+
+    n = len(v1)         # total number of items
+    sim_val = 0         # stores dot product
+    for i in range(n):
+        sim_val = sim_val + (v1[i]*v2[i])
+
+    return sim_val
+
+
+# weighted idf for query tokens
 def getidf(token):
     
     # N = total no. of documents in collection
@@ -154,8 +178,31 @@ for token in vocab_list:
 
 # returns the tf-tdf weight of a specific token w.r.t a specific document
 def getweight(filename, token):
-    pass
+
+    # create a list to store tfidf values
+    tfidf_val = 0
+    if filename in filenames:
+        tf_vec = weighted_tfs[filename]
+        token_idx = vocab_list.index(token)
+        idf_val = raw_dfs[token]
+        tfidf_val = tf_vec[token_idx]*idf_val
+
+    return tfidf_val
 
 # returns the name and score of the highest matching document
 def query(qstring):
-    pass
+
+    # lowercase all query letters
+    qstring = qstring.lower()
+    qstring_tokens = get_tokens(qstring)
+
+    # initialize dict to store similarity values
+    cosine_sim = {}
+
+    for filename in filenames:
+        tfidf_vec = []
+
+
+qstring = 'The Confederation which was early felt to be necessary was prepared from the models of the Batavian and Helvetic confederacies, the only examples which remain with any detail and precision in history, and certainly the only ones which the people at large had ever considered'
+
+query(qstring)
