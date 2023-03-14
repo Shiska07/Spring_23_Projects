@@ -9,7 +9,7 @@ from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 
-# create a dict to store all docs, filename is the key
+# create a list to store all filenames and document content
 filenames = []
 docs = []
 
@@ -53,20 +53,21 @@ def get_vocab(collection):
     return unique_vocab_tokens
 
 
-# create vocabulary list
+# create vocabulary list using the corpus
 vocab_list = get_vocab(docs)
 print(f'The vocabulary list consists of {len(vocab_list)} items.\n')
 
-# returns tf vector for a given document/query string
-def get_tf_count_vector(str_tokens):
+# returns tf vector for a given document/query string using the vocabulary
+def get_tf_count_vector(tokens_list):
         
-    # stores tf values for a the given string
-    str_tf_vec = []
+    # stores tf values of tokens in tokens_List
+    raw_tf_vec = []
     for token in vocab_list:
-        count = str_tokens.count(token)
-        str_tf_vec.append(count)
+        count = tokens_list.count(token)
+        raw_tf_vec.append(count)
 
-    return str_tf_vec
+    # return a list containing raw tf values
+    return raw_tf_vec
 
 
 '''
@@ -74,9 +75,9 @@ DOCUMENT TOKENIZATION
 Convert all document strings into tokens for df counting.
 'tokens_for_each_file' is a dictionary that contains tokens for all individual files(key)
 '''
-tokens_for_each_file = {}
+tokens_for_each_doc = {}
 for i, doc in enumerate(docs):
-    tokens_for_each_file[filenames[i]] = get_tokens(doc)
+    tokens_for_each_doc[filenames[i]] = get_tokens(doc)
 
 
 '''
@@ -85,21 +86,28 @@ RAW DOCUMENT FREQUENCY(df) CALCULATION
 in the vocabulary. Document frequency is specific to a certain term
 '''
 raw_dfs = {}
+
+# for each token in the corpus vocab
 for token in vocab_list:
+
+    # set token count to '0' initially
     raw_dfs[token] = 0
-    for k, v in tokens_for_each_file.items():
+    for k, v in tokens_for_each_doc.items():
+
+        # of token occurs in a doc, increase count
         if token in v:
             raw_dfs[token] = raw_dfs[token] + 1
 
 
 '''
-RAW TERM FREQUENCY CALCULATIOM
+RAW TERM FREQUENCY(tf) CALCULATIOM
 'raw_tf' is a dictionary containing count vector for each doc.
 Term frequency is specific to a specific term for a specific doc.
 '''
-raw_tfs = {}
-for filename, token_list in tokens_for_each_file.items():
-    raw_tfs[filename] = get_tf_count_vector(token_list)
+docs_raw_tfs = {}
+for filename, token_list in tokens_for_each_doc.items():
+    docs_raw_tfs[filename] = get_tf_count_vector(token_list)
+
 
 '''
 VECTOR SPACE MODEL: lnc.ltc(ddd.qqq) weighing scheme
@@ -108,6 +116,7 @@ VECTOR SPACE MODEL: lnc.ltc(ddd.qqq) weighing scheme
 3) cosine normalization for both docs and query
 '''
 
+# returns a list of weighted tf values given a list of raw tf values
 def get_weighted_tf(raw_tf_vec):
 
     # list to store weighted tf
@@ -121,10 +130,23 @@ def get_weighted_tf(raw_tf_vec):
     
     return w_tf_vec
 
-# calculate weighted_df for docs
+
+# calculate weighted_tf for docs
 weighted_tfs = {}
-for filename, raw_tf_vec in raw_tfs.items(): 
+for filename, raw_tf_vec in docs_raw_tfs.items(): 
     weighted_tfs[filename] = get_weighted_tf(raw_tf_vec)
+
+
+# returns a list of tfidf vvalues givrn given a list of weighted tf and idf values
+def get_tfidf(tf_vec, idf_vec):
+
+    # initialize list to store tfidf values
+    tfidf_vec = []
+    n = len(tf_vec)
+    for i in range(n):
+        tfidf_vec.append(tf_vec[i]*idf_vec[i])
+
+    return tfidf_vec
 
 
 # normalizes components of a list
@@ -139,26 +161,19 @@ def get_normalized_vec(tfidf_vec):
     return norm_tfidf_vec
 
 
-# returns tfidf vector givrn tf vector and idf vector
-def get_tfidf(tf_vec, idf_vec):
-
-    tfidf_vec = []
-    for idf in idf_vec:
-        for tf in tf_vec:
-            tfidf_vec.append(tf*idf)
-
-    return tfidf_vec
-
-# calculate tfidf for docs
+# calculate tfidf values for all docs
 tfidf_docs = {}
-for filename, tf_vec in weighted_tfs.items():
+for filename, w_tf_vec in weighted_tfs.items():
+
+    # using 'lnc' scheme for 'ddd', we use weighted tf and raw df values
+    # for caluclating tf*idf
+    tfidf_vec = get_tfidf(w_tf_vec, list(raw_dfs.values()))
 
     # store normalized tfidf vector
-    tfidf_vec = get_tfidf(tf_vec, raw_dfs.values())
     tfidf_docs[filename] = get_normalized_vec(tfidf_vec)
 
 
-# calculated the dot product of two vectors
+# retuns the dot product/cosine similarity of items in two lists
 def get_cosine_similarity(v1, v2):
 
     n = len(v1)         # total number of items
@@ -183,21 +198,28 @@ def getidf(token):
 
     return w_idf
 
+
 # create a dictionary containing weighted idfs for each token
 weighted_idfs = {}
 for token in vocab_list:
     weighted_idfs[token] = getidf(token)
 
+
 # returns the tf-tdf weight of a specific token w.r.t a specific document
 def getweight(filename, token):
 
-    # create a list to store tfidf values
-    tfidf_val = 0
     if filename in filenames:
-        tf_vec = weighted_tfs[filename]
-        token_idx = vocab_list.index(token)
-        idf_val = raw_dfs[token]
-        tfidf_val = tf_vec[token_idx]*idf_val
+        if token in vocab_list:
+
+            # get index of the given token from vocab_list
+            token_idx = vocab_list.index(token)
+
+            # get tfidf value of token from 'tfidf_docs' dict containing
+            # tfidf values for all docs
+            tfidf_val = tfidf_docs[filename][token_idx]
+    else:
+        # return 0 if invalid filename or token
+        return 0
 
     return tfidf_val
 
@@ -214,26 +236,29 @@ def query(qstring):
 
     # get weighted tf vector for query
     raw_tf_query = get_tf_count_vector(qstring_tokens)
-    tf_query_vec = get_weighted_tf(raw_tf_query)
+    w_tf_query = get_weighted_tf(raw_tf_query)
 
-    # get weighted idfs list for query
-    w_idf_vec = weighted_idfs.values()
+    # as per the 'ltc'weighing scheme for 'qqq', we use weighted idf values
+    w_idfs = list(weighted_idfs.values())
 
-    # get tfidf vec
-    tfidf_query_vec = get_tfidf(tf_query_vec, w_idf_vec)
-    # normalize vec
-    tfidf_query_vec = get_normalized_vec(tfidf_query_vec)
+    # get tfidf values
+    tfidf_query = get_tfidf(w_tf_query, w_idfs)
+
+    # normalize values
+    tfidf_query_norm = get_normalized_vec(tfidf_query)
     
+    # caluclate cosine similarity with each doc
     for filename in filenames:
 
         # calculate cosine similarity of query with all docs
-        cosine_sim[filename] = get_cosine_similarity(tfidf_docs[filename], tfidf_query_vec)
+        cosine_sim[filename] = get_cosine_similarity(tfidf_docs[filename], tfidf_query_norm)
 
     # get filename with maximum similarity
     max_sim_fname = max(cosine_sim)
-    max_sim_val = cosine_sim(max_sim_fname)
+    max_sim_val = cosine_sim[max_sim_fname]
 
     return (max_sim_fname, max_sim_val)
+
 
 qstring = 'The Confederation which was early felt to be necessary was prepared from the models of the Batavian and Helvetic confederacies, the only examples which remain with any detail and precision in history, and certainly the only ones which the people at large had ever considered'
 
