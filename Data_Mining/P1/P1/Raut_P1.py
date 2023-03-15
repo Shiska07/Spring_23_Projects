@@ -55,7 +55,7 @@ def get_vocab(collection):
 
 # create vocabulary list using the corpus
 vocab_list = get_vocab(docs)
-print(f'The vocabulary list consists of {len(vocab_list)} items.\n')
+
 
 # returns tf vector for a given document/query string using the vocabulary
 def get_tf_count_vector(tokens_list):
@@ -208,6 +208,7 @@ for token in vocab_list:
 # returns the tf-tdf weight of a specific token w.r.t a specific document
 def getweight(filename, token):
 
+    tfidf_val = float(0)
     if filename in filenames:
         if token in vocab_list:
 
@@ -217,9 +218,6 @@ def getweight(filename, token):
             # get tfidf value of token from 'tfidf_docs' dict containing
             # tfidf values for all docs
             tfidf_val = tfidf_docs[filename][token_idx]
-    else:
-        # return 0 if invalid filename or token
-        return 0
 
     return tfidf_val
 
@@ -254,12 +252,16 @@ def query(qstring):
         cosine_sim[filename] = get_cosine_similarity(tfidf_docs[filename], tfidf_query_norm)
 
     # get filename with maximum similarity
-    max_sim_fname = max(cosine_sim)
-    max_sim_val = cosine_sim[max_sim_fname]
+    max_sim_fname = ''
+    max_sim_val = float(0)
+    for fname, sim_val in cosine_sim.items():
+        if sim_val > max_sim_val:
+            max_sim_fname = fname
+            max_sim_val = sim_val
 
     return (max_sim_fname, max_sim_val)
 
 
-qstring = 'The Confederation which was early felt to be necessary was prepared from the models of the Batavian and Helvetic confederacies, the only examples which remain with any detail and precision in history, and certainly the only ones which the people at large had ever considered'
+qstring = 'Having thus imparted to you my sentiments as they have been awakened by the occasion which brings us together, I shall take my present leave; but not without resorting once more to the benign Parent of the Human Race in humble supplication that, since He has been pleased to favor the American people with opportunities for deliberating in perfect tranquillity'
 
-query(qstring)
+print(query(qstring))
