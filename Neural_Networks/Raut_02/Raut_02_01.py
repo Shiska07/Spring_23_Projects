@@ -35,32 +35,102 @@ def get_validation_split(X, Y, validation_split):
 
     # extract training set
     X_train = np.delete(X, np.s_[start:stop], axis = 0)
-    Y_train = np.delete(Y np.s_[start:stop], axis = 0)
+    Y_train = np.delete(Y, np.s_[start:stop], axis = 0)
 
     return X_train, Y_train, X_val, Y_val
 
 
+# returns a list of numpy arrays given a list of tensors
+def convert_to_numpy_arrays(weights_tensor_list):
+
+    weights_mtx_list = []
+
+    for tnsr in weights_tensor_list:
+        weights_mtx_list.append(tnsr.numpy())
+
+    return weights_mtx_list
+
+
 # returns a list of tensors correspong to weights for each layer
-def get_weights_tensors_list(input_dim, layers, seed):
+def get_weights_tensors_list(input_dim, weights, layers, seed):
 
     weights_tensor_list = []
 
-    # initialize weights for each layer
-    for i in range(layers):
-        np.random.seed(seed)
-        w_mtx = np.random.randn(input_dim, layers[i])
-        
-        # create tensor variable from numpy array
-        w_tensor = tf.Variable(w_mtx)
+    # if weights == None, initialize weights for each layer
+    if weights is None:
+        for n_nodes in layers:
+            np.random.seed(seed)
+            w_mtx = np.random.randn(input_dim, n_nodes)
+            
+            # create tensor variable from numpy matrix
+            w_tensor = tf.Variable(w_mtx)
 
-        # add to weights_list
-        weights_tensor_list.append(w_tensor)
+            # add to weights_list
+            weights_tensor_list.append(w_tensor)
 
-        # input dim for next layer is the no. of nodes
-        # in previous layer + 1 for bias
-        input_dim = layers[i] + 1
+            # input dim for next layer is the no. of nodes
+            # in previous layer + 1 for bias
+            input_dim = n_nodes + 1
+
+    # if weights are provided
+    else:
+        for w_mtx in weights:
+
+            # create tensor variable from numpy matrix
+            w_tensor = tf.Variable(w_mtx)
+
+            # add to weights_list
+            weights_tensor_list.append(w_tensor)
 
     return weights_tensor_list
+
+
+# returns svm loss of a sample
+def sample_svm_loss(y, y_pred):
+
+    delta = 1
+
+    # get number of classes
+    n_classes = y.numpy().shape[1]
+
+    # get index of correct class
+    for i in range(n_classes):
+        if y.numpy()[:, i] == 1:
+            st = i
+
+    svm_loss = tf.Variable(0)
+
+    for j in range(n_classes):
+        if j != st:
+            val = max(0, ((y_pred.numpy()[:, j]) - (y_pred.numpy()[:, st]) + delta))
+        svm_loss.aasign_add(val)
+
+    return svm_loss
+
+
+# returns sum of squared error
+def sample_sse_loss(y, y_pred):
+
+    # caluclate sum of squared error
+    sse_loss = tf.reduce_sum(tf.square(tf.subtract(y, y_pred)))
+
+    return sse_loss
+
+
+# returns cross entropy loss
+def sample_cross_entropy_loss(y, y_pred):
+
+    # calculate cross entropy loss
+    ce_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y, y_pred))
+
+    return ce_loss
+
+
+# returns final model parameters after training a network using batch gradient descent
+def train_network(X_train, Y_train, weights_tensor_list, activations, alpha, batch_size, loss):
+
+
+    pass
 
 
 def multi_layer_nn_tensorflow(X_train,Y_train,layers,activations,alpha,batch_size,epochs=1,loss="svm",
@@ -72,16 +142,26 @@ def multi_layer_nn_tensorflow(X_train,Y_train,layers,activations,alpha,batch_siz
     # get training and validation data
     X_train, Y_train, X_val, Y_val = get_validation_split(X_train, Y_train, validation_split)
 
-
     # initialize weights
     n_train_samp, input_dim = X_train.shape
     n_val_samp, out_dim = Y_val.shape
 
     # each item in the list as a tf.Variable
-    weights_tensor_list = get_weights_tensors_list(input_dim, layers, seed)
-    
+    weights_tensor_list = get_weights_tensors_list(input_dim, weights, layers, seed)
 
-    return 0
+    # initialize list to store error over epochs and final prediction on evaluation data
+    err = np.zeros((1, epochs), dtype = float)
+    Y_eval_pred = np.zeros((n_val_samp, out_dim), dtype = float)
+    
+    for i in range(epochs):
+
+        weights_tensor_list = train_network(X_train,Y_train,weights_tensor_list,activations,alpha,batch_size,loss)
+
+    # convert weights tensor list to numpy arrays
+    weights_mtx_list = convert_to_numpy_arrays(weights_tensor_list)
+
+    return [weights_mtx_list, err, Y_eval_pred]
+
 
 def get_data():
     X = np.array([[0.685938, -0.5756752], [0.944493, -0.02803439], [0.9477775, 0.59988844], [0.20710745, -0.12665261], [-0.08198895, 0.22326154], [-0.77471393, -0.73122877], [-0.18502127, 0.32624513], [-0.03133733, -0.17500992], [0.28585237, -0.01097354], [-0.19126464, 0.06222228], [-0.0303282, -0.16023481], [-0.34069192, -0.8288299], [-0.20600465, 0.09318836], [0.29411194, -0.93214977], [-0.7150941, 0.74259764], [0.13344735, 0.17136675], [0.31582892, 1.0810335], [-0.22873795, 0.98337173], [-0.88140666, 0.05909261], [-0.21215424, -0.05584779]], dtype=np.float32)
