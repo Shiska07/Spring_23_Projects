@@ -23,5 +23,5 @@ Test: (x1, x2, .....xn)
 4) P1_softmax_regression.ipynb: solutions to problem 3 have been implemented in this notebook. Training and test files are of the following format:
 Training: ((x1, x2, .....xn), y)
 Test: (x1, x2, .....xn)
-Evaluation: (x1, x2, .....xn)
+Evaluation: ((x1, x2, .....xn), y)
 
