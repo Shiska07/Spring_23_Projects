@@ -135,39 +135,21 @@ def ce_loss(Y, Y_pred):
     return ce_loss
 
 
+# given a list of activation types, returns of list of tf activation functions
+def get_activation_func_list(activations):
+    
+    act_func_list = []
+    for i in range(len(activations))
+    if activations[i] == 'relu':
+        act_func_list.append(tf.nn.relu)
+    elif activations[i] == 'sigmoid':
+        act_func_list.append(tf.math.sigmoid)
+    else:
+        act_func_list.append(tf.identity)
 
-'''
-# returns output of the network given weights and activations for each layer
-def get_network_output(X, weights_tensor_list, activations):
+    return act_func_list
 
-    X = tf.cast(X, dtype = tf.float32)
 
-    # create a list to store net values and layer ourput
-    net_list = []
-    out_list = []
-
-    for i, W in enumerate(weights_tensor_list):
-
-        # get net value
-        net = tf.matmul(X, W)
-        net_list.append(net)
-
-        # apply activation
-        if activations[i] == 'relu':
-            layer_output = tf.nn.relu(net_list[i])
-            out_list.append(layer_output)
-        elif activations[i] == 'sigmoid':
-            layer_output = tf.math.sigmoid(net_list[i])
-            out_list.append(layer_output)
-        else:
-            layer_output = net_list[i]
-            out_list.append(layer_output)
-
-        # output of this layer becomes input for next layer
-        X = add_bias_to_tensor(out_list[i])
-
-    return layer_output
-'''
 # creates a single dense layer object
 class SingleDenseLayer(tf.Module):
 
@@ -185,7 +167,17 @@ class SingleDenseLayer(tf.Module):
         layer_output = self.layer_activation(net)
    
         return layer_output
+    
+    # update layer weights given gradient and alpha value
+    def update_weights(self, gradient, alpha):
+        
+        # w = w - alpha*gradient (steepest descent)
+        self.weights.assign_sub(tf.multiply(gradient, alpha))
 
+    # returns weight values of the layer
+    def get_weights(self):
+        return self.weights
+    
 
 # creates a multi-layer neural network object
 class MultiLayerNetwork(tf.Module):
@@ -194,7 +186,6 @@ class MultiLayerNetwork(tf.Module):
     def __init__(self, network_layers):
         self.network_layers = network_layers
 
-    @tf.function
     def get_network_output(self, X):
         for single_layer in self.network_layers:
             
@@ -206,10 +197,43 @@ class MultiLayerNetwork(tf.Module):
 
         # return final output
         return layer_output
+
+    # returns list of weights for the entire model
+    def weights(self):
         
+        # initialize list to store weights
+        network_weights_list = []
+        for single_layer in self.network_layers:
+            network_weights_list.append(single_layer.get_weights())
+
+        return network_weights_list
+    
+    # updates weights of the entire network given list of gradients
+    # for all layers and alpha value
+    def update_weights(self, gradient_list, alpha):
+
+        for i, single_layer in enumerate(self.network_layers):
+            single_layer.update_weights(gradient_list[i], alpha)
+
+        # return a list of updated weights
+        return self.weights()
+
+
+# returns a list of dense layer objects for creating network
+def get_network_layers_list(weights_tensor_list, act_func_list):
+
+    # initialize list to store layers
+    network_layers_list = []
+
+    # create layers using weights and activation functions
+    for i, W in enumerate(weights_tensor_list):
+        network_layers_list.append(SingleDenseLayer(W, act_func_list[i]))
+
+    return network_layers_list
+
 
 # returns final model parameters after training a network using batch gradient descent
-def train_network(X_train, Y_train, weights_tensor_list, activations, alpha, batch_size, loss):
+def train_network(X_train, Y_train, nn_model, alpha, batch_size, loss):
 
     # get no of samples, features and output dim
     n_train_samp, n_feat = X_train.shape
@@ -235,7 +259,7 @@ def train_network(X_train, Y_train, weights_tensor_list, activations, alpha, bat
         with tf.GradientTape() as g_tape:
             
             # get predictions
-            Y_pred = get_network_output(X_batch, weights_tensor_list, activations)
+            Y_pred = nn_model.get_network_output(X_batch)
 
             if loss == "svm":
                 loss_val = svm_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
@@ -244,13 +268,12 @@ def train_network(X_train, Y_train, weights_tensor_list, activations, alpha, bat
             else:
                 loss_val = ce_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
 
-            gradients_list = g_tape.gradient(loss_val, weights_tensor_list)
+            gradients_list = g_tape.gradient(loss_val, nn_model.weights())
 
-        for j, W in enumerate(weights_tensor_list):
+            updated_weights_tensors = nn_model.update_weights(gradients_list, alpha)
 
-            weights_tensor_list[j].assign_sub(tf.math.multiply(gradients_list[j], alpha))          
-
-    return weights_tensor_list
+    # return a list of weight tensors 
+    return updated_weights_tensors
 
 
 def multi_layer_nn_tensorflow(X_train, Y_train, layers, activations, alpha, batch_size, epochs=1, loss="svm",
@@ -272,13 +295,22 @@ def multi_layer_nn_tensorflow(X_train, Y_train, layers, activations, alpha, batc
     # initialize list to store error over epochs and final prediction on evaluation data
     err = np.zeros((1, epochs), dtype = float)
     Y_val_final_pred = np.zeros((n_val_samp, out_dim), dtype = float)
+
+    # create a list of tf_activation modules
+    act_func_list = get_activation_func_list(activations)
+
+    # create a list of network layers
+    network_layers_list = get_network_layers_list(weights_tensor_list, act_func_list)
+
+    # create model
+    nn_model = MultiLayerNetwork(network_layers_list)
     
     for i in range(epochs):
 
-        weights_tensor_list = train_network(X_train, Y_train, weights_tensor_list, activations, alpha, batch_size, loss)
+        weights_tensor_list = train_network(X_train, Y_train, nn_model, alpha, batch_size, loss)
 
         # get predictions for evaluation data
-        Y_val_pred = get_network_output(tf.convert_to_tensor(X_val), weights_tensor_list, activations)
+        Y_val_pred = nn_model.get_network_output(tf.convert_to_tensor(X_val))
 
         if loss == "svm":
             err[i] = svm_loss(tf.cast(tf.convert_tp_tensor(Y_val), dtype = tf.float32), Y_val_pred)
