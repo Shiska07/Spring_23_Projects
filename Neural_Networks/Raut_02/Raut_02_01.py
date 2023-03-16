@@ -139,13 +139,13 @@ def ce_loss(Y, Y_pred):
 def get_activation_func_list(activations):
     
     act_func_list = []
-    for i in range(len(activations))
-    if activations[i] == 'relu':
-        act_func_list.append(tf.nn.relu)
-    elif activations[i] == 'sigmoid':
-        act_func_list.append(tf.math.sigmoid)
-    else:
-        act_func_list.append(tf.identity)
+    for i in range(len(activations)):
+        if activations[i] == 'relu':
+            act_func_list.append(tf.nn.relu)
+        elif activations[i] == 'sigmoid':
+            act_func_list.append(tf.math.sigmoid)
+        else:
+            act_func_list.append(tf.identity)
 
     return act_func_list
 
@@ -193,7 +193,7 @@ class MultiLayerNetwork(tf.Module):
             layer_output = single_layer.get_layer_output(X)
             
             # add bias and pass to next layer
-            X = add_bias_to_tensor(X)
+            X = add_bias_to_tensor(layer_output)
 
         # return final output
         return layer_output
@@ -233,7 +233,7 @@ def get_network_layers_list(weights_tensor_list, act_func_list):
 
 
 # returns final model parameters after training a network using batch gradient descent
-def train_network(X_train, Y_train, nn_model, alpha, batch_size, loss):
+def train_network(X_train, Y_train, nn_model, alpha, batch_size, loss_func):
 
     # get no of samples, features and output dim
     n_train_samp, n_feat = X_train.shape
@@ -256,21 +256,21 @@ def train_network(X_train, Y_train, nn_model, alpha, batch_size, loss):
         Y_batch = tf.convert_to_tensor(Y_train[start:end,:], dtype = tf.float32)
         
         # initialize list to store gradient values
+        gradients_list = []
+
+        # initialize list to store gradient values
         with tf.GradientTape() as g_tape:
             
             # get predictions
             Y_pred = nn_model.get_network_output(X_batch)
 
-            if loss == "svm":
-                loss_val = svm_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
-            elif loss == "mse":
-                loss_val = mse_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
-            else:
-                loss_val = ce_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
+            # get loss value
+            loss_val = loss_func(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
 
-            gradients_list = g_tape.gradient(loss_val, nn_model.weights())
+        # get gradients   
+        gradients_list = g_tape.gradient(loss_val, nn_model.weights())
 
-            updated_weights_tensors = nn_model.update_weights(gradients_list, alpha)
+        updated_weights_tensors = nn_model.update_weights(gradients_list, alpha)
 
     # return a list of weight tensors 
     return updated_weights_tensors
@@ -304,21 +304,26 @@ def multi_layer_nn_tensorflow(X_train, Y_train, layers, activations, alpha, batc
 
     # create model
     nn_model = MultiLayerNetwork(network_layers_list)
+
+    # get loss function
+    if loss == "svm":
+        loss_func = svm_loss
+    elif loss == "mse":
+        loss_func = mse_loss
+    else:
+        loss_func = ce_loss
     
     for i in range(epochs):
 
-        weights_tensor_list = train_network(X_train, Y_train, nn_model, alpha, batch_size, loss)
+        weights_tensor_list = train_network(X_train, Y_train, nn_model, alpha, batch_size, loss_func)
 
         # get predictions for evaluation data
         Y_val_pred = nn_model.get_network_output(tf.convert_to_tensor(X_val))
 
-        if loss == "svm":
-            err[i] = svm_loss(tf.cast(tf.convert_tp_tensor(Y_val), dtype = tf.float32), Y_val_pred)
-        elif loss_vals == "mse":
-            loss_vals = mse_loss(tf.cast(tf.convert_tp_tensor(Y_val), dtype = tf.float32), Y_val_pred)
-        else:
-            loss_vals = ce_loss(tf.cast(tf.convert_tp_tensor(Y_val), dtype = tf.float32), Y_val_pred)
-
+        # get error om prediction data
+        err[i] = loss_func(tf.cast(tf.convert_tp_tensor(Y_val), dtype = tf.float32), Y_val_pred)
+        
+    # convert tensor to numpy array
     Y_val_final_pred = Y_val_pred.numpy()
 
     # convert weights tensor list to numpy arrays
