@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 
 # returns a new array after adding a bias of '1' as the first column
-def add_bias(X):
+def add_bias_to_arr(X):
 
     # get shape
     n_samp, n_feat = X.shape
@@ -17,6 +17,15 @@ def add_bias(X):
     X_b[:, 1::] = X
 
     return X_b
+
+
+# adds bias as the first column to a tensor
+def add_bias_to_tensor(X):
+
+    X_b = add_bias_to_arr(X.numpy())
+
+    # convert to tensor and return
+    return tf.convert_to_tensor(X_b)
 
 
 # returns training and validation arrays according to 'validation_split'
@@ -85,51 +94,112 @@ def get_weights_tensors_list(input_dim, weights, layers, seed):
     return weights_tensor_list
 
 
-# returns svm loss of a sample
-def sample_svm_loss(y, y_pred):
+# returns svm loss of a batch
+def svm_loss(Y, Y_pred):
 
-    # initialize delta value
+   # initialize delta value
     # invert values to make sure it is 0 for correct class label
-    delta = tf.bitwise.invert(y)
+    delta = tf.bitwise.invert(Y)
 
-    # get index of correct class
-    st = tf.math.argmax(y, axis = 1)
+    # create a tensor of zeros
+    zeros_tnsr = tf.zeros((Y.numpy().shape))
 
-    svm_loss = tf.reduce_sum(tf.math.maximum(0, tf.add(tf.subtract(y_pred, y_pred[:,st]), delta)))
+    # get margin values (yj - yst + delta)
+    margins = tf.add(tf.subtract(Y_pred, tf.reduce_sum(tf.math.multiply(Y_pred, Y), axis = 1)), delta)
+
+    # get maximum margin
+    max_margins = tf.math.maximum(zeros_tnsr, margins)
+
+    # sum over all classes and get total loss
+    svm_loss = tf.reduce_mean(tf.reduce_sum(max_margins, axis = 1))
 
     return svm_loss
 
 
-# returns sum of squared error
-def sample_sse_loss(y, y_pred):
+# returns sum of a batch
+def mse_loss(Y, Y_pred):
 
-    # caluclate sum of squared error
-    sse_loss = tf.reduce_sum(tf.square(tf.subtract(y, y_pred)))
+    # caluclate mean squared error
+    mse_loss = tf.reduce_mean(tf.square(tf.subtract(Y, Y_pred)))
 
-    return sse_loss
+    return mse_loss
 
 
-# returns cross entropy loss
-def sample_cross_entropy_loss(y, y_pred):
+# returns cross entropy loss of a batch
+def ce_loss(Y, Y_pred):
 
     # calculate cross entropy loss
-    ce_loss = tf.nn.softmax_cross_entropy_with_logits(y, y_pred)
+    ce_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels = Y, logits = Y_pred))
 
     return ce_loss
 
 
+# returns output of the network given weights and activations for each layer
+def get_network_output(X, weights_tensor_list, activations):
+
+    X = tf.cast(X, dtype = tf.float32)
+
+    for i, W in enumerate(weights_tensor_list):
+
+        # get net value
+        net = tf.matmul(X, W)
+
+        # apply activation
+        if activations[i] == 'relu':
+            layer_output = tf.nn.relu(net)
+        elif activations[i] == 'sigmoid':
+            layer_output = tf.math.sigmoid(net)
+        else:
+            layer_output = net
+
+        # output of this layer becomes input for next layer
+        X = add_bias_to_tensor(layer_output)
+
+    return layer_output
+   
+
 # returns final model parameters after training a network using batch gradient descent
 def train_network(X_train, Y_train, weights_tensor_list, activations, alpha, batch_size, loss):
 
+    # get no of samples, features and output dim
+    n_train_samp, n_feat = X_train.shape
+    __, out_dim = Y_train.shape
 
-    pass
+    # get number of batches
+    n_batches = np.ceil(n_train_samp/batch_size)
+
+    for i in range(n_batches):
+
+        # get indices for extracting a single batch
+        start = i*batch_size
+        end = (i+1)*batch_size
+
+        if end > n_train_samp:
+            end = n_train_samp
+
+        # extract batch & convert numpy array to tensor
+        X_batch = tf.convert_to_tesor(X_train[start:end,:])
+        Y_batch = tf.convert_to_tesor(Y_train[start:end,:])
+        
+        # get predictions
+        Y_pred = get_network_output(X_batch, weights_tensor_list, activations)
+
+        if loss == "svm":
+            loss_vals = sample_svm_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
+        elif loss_vals == "mse":
+            loss_vals = sample_sse_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
+        else:
+            loss_vals = sample_ce_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
+
+
+    return weights_tensor_list
 
 
 def multi_layer_nn_tensorflow(X_train,Y_train,layers,activations,alpha,batch_size,epochs=1,loss="svm",
                               validation_split=[0.8,1.0],weights=None,seed=2):
     
     # add bias to X
-    X_train = add_bias(X_train)
+    X_train = add_bias_to_arr(X_train)
 
     # get training and validation data
     X_train, Y_train, X_val, Y_val = get_validation_split(X_train, Y_train, validation_split)
