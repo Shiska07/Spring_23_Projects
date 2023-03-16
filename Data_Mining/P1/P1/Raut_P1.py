@@ -14,7 +14,7 @@ filenames = []
 docs = []
 
 # read and store files
-corpusroot = './US_Inaugural_Addresses_s'
+corpusroot = './US_Inaugural_Addresses'
 for filename in os.listdir(corpusroot):
     if filename.startswith('0') or filename.startswith('1'):
         file = open(os.path.join(corpusroot, filename), "r", encoding='windows-1252')
@@ -156,7 +156,12 @@ def get_normalized_vec(tfidf_vec):
     sum_of_sq = sum(tfidf_sq)               # sum of squares
     sqrt_sum_of_sq = math.sqrt(sum_of_sq)   # normalizing factor
 
-    norm_tfidf_vec = [(tfidf/sqrt_sum_of_sq) for tfidf in tfidf_vec]
+    # if all values in tfidf_vec are zeros, that would
+    # lead to a zero division
+    if sqrt_sum_of_sq != 0:
+        norm_tfidf_vec = [(tfidf/sqrt_sum_of_sq) for tfidf in tfidf_vec]
+    else:
+        norm_tfidf_vec = tfidf_vec.copy()
 
     return norm_tfidf_vec
 
@@ -186,6 +191,9 @@ def get_cosine_similarity(v1, v2):
 
 # weighted idf for query tokens
 def getidf(token):
+
+    if type(token) != str:
+        token = str(token)
     
     # N = total no. of documents in collection
     N = len(docs)
@@ -195,6 +203,7 @@ def getidf(token):
         w_idf = math.log(N/raw_dfs[token])
     else:
         w_idf = -1
+        print(f'token "{token}" does not exist in the corpus.\n')
 
     return w_idf
 
@@ -208,6 +217,12 @@ for token in vocab_list:
 # returns the tf-tdf weight of a specific token w.r.t a specific document
 def getweight(filename, token):
 
+    if type(filename) != str:
+        filename = str(filename)
+
+    if type(token) != str:
+        token = str(token)
+
     tfidf_val = float(0)
     if filename in filenames:
         if token in vocab_list:
@@ -218,6 +233,10 @@ def getweight(filename, token):
             # get tfidf value of token from 'tfidf_docs' dict containing
             # tfidf values for all docs
             tfidf_val = tfidf_docs[filename][token_idx]
+        else:
+            print(f'token "{token}" does not exist in the corpus.\n')
+    else:
+        print(f'file "{filename}" does not exist in the corpus.\n')
 
     return tfidf_val
 
@@ -225,9 +244,12 @@ def getweight(filename, token):
 # returns the name and score of the highest matching document
 def query(qstring):
 
+    if type(qstring) != str:
+        qstring = str(qstring)
+
     # lowercase all query letters
-    qstring = qstring.lower()
-    qstring_tokens = get_tokens(qstring)
+    qstring_l = qstring.lower()
+    qstring_tokens = get_tokens(qstring_l)
 
     # initialize dict to store similarity values
     cosine_sim = {}
@@ -259,9 +281,7 @@ def query(qstring):
             max_sim_fname = fname
             max_sim_val = sim_val
 
+    if max_sim_fname == '':
+        print(f'No matches found for query "{qstring}".\n')
+
     return (max_sim_fname, max_sim_val)
-
-
-qstring = 'Having thus imparted to you my sentiments as they have been awakened by the occasion which brings us together, I shall take my present leave; but not without resorting once more to the benign Parent of the Human Race in humble supplication that, since He has been pleased to favor the American people with opportunities for deliberating in perfect tranquillity'
-
-print(query(qstring))
