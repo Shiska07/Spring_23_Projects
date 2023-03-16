@@ -88,22 +88,14 @@ def get_weights_tensors_list(input_dim, weights, layers, seed):
 # returns svm loss of a sample
 def sample_svm_loss(y, y_pred):
 
-    delta = 1
-
-    # get number of classes
-    n_classes = y.numpy().shape[1]
+    # initialize delta value
+    # invert values to make sure it is 0 for correct class label
+    delta = tf.bitwise.invert(y)
 
     # get index of correct class
-    for i in range(n_classes):
-        if y.numpy()[:, i] == 1:
-            st = i
+    st = tf.math.argmax(y, axis = 1)
 
-    svm_loss = tf.Variable(0)
-
-    for j in range(n_classes):
-        if j != st:
-            val = max(0, ((y_pred.numpy()[:, j]) - (y_pred.numpy()[:, st]) + delta))
-        svm_loss.aasign_add(val)
+    svm_loss = tf.reduce_sum(tf.math.maximum(0, tf.add(tf.subtract(y_pred, y_pred[:,st]), delta)))
 
     return svm_loss
 
@@ -121,7 +113,7 @@ def sample_sse_loss(y, y_pred):
 def sample_cross_entropy_loss(y, y_pred):
 
     # calculate cross entropy loss
-    ce_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y, y_pred))
+    ce_loss = tf.nn.softmax_cross_entropy_with_logits(y, y_pred)
 
     return ce_loss
 
