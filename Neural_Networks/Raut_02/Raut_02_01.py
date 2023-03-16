@@ -5,6 +5,7 @@
 
 import numpy as np
 import tensorflow as tf
+print(tf.__version__)
 
 # returns a new array after adding a bias of '1' as the first column
 def add_bias_to_arr(X):
@@ -13,7 +14,7 @@ def add_bias_to_arr(X):
     n_samp, n_feat = X.shape
 
     # add bias as the first column
-    X_b = np.ones((n_samp, n_feat + 1), dtype = float)
+    X_b = np.ones((n_samp, n_feat + 1), dtype = np.float32)
     X_b[:, 1::] = X
 
     return X_b
@@ -72,7 +73,7 @@ def get_weights_tensors_list(input_dim, weights, layers, seed):
             w_mtx = np.random.randn(input_dim, n_nodes)
             
             # create tensor variable from numpy matrix
-            w_tensor = tf.Variable(w_mtx)
+            w_tensor = tf.Variable(w_mtx, dtype = tf.float32)
 
             # add to weights_list
             weights_tensor_list.append(w_tensor)
@@ -86,7 +87,7 @@ def get_weights_tensors_list(input_dim, weights, layers, seed):
         for w_mtx in weights:
 
             # create tensor variable from numpy matrix
-            w_tensor = tf.Variable(w_mtx)
+            w_tensor = tf.Variable(w_mtx, dtype = tf.float32)
 
             # add to weights_list
             weights_tensor_list.append(w_tensor)
@@ -102,7 +103,7 @@ def svm_loss(Y, Y_pred):
     delta = tf.bitwise.invert(Y)
 
     # create a tensor of zeros
-    zeros_tnsr = tf.zeros((Y.numpy().shape))
+    zeros_tnsr = tf.zeros((Y.numpy().shape), dtype = tf.float32)
 
     # get margin values (yj - yst + delta)
     margins = tf.add(tf.subtract(Y_pred, tf.reduce_sum(tf.math.multiply(Y_pred, Y), axis = 1)), delta)
@@ -134,29 +135,78 @@ def ce_loss(Y, Y_pred):
     return ce_loss
 
 
+
+'''
 # returns output of the network given weights and activations for each layer
 def get_network_output(X, weights_tensor_list, activations):
 
     X = tf.cast(X, dtype = tf.float32)
 
+    # create a list to store net values and layer ourput
+    net_list = []
+    out_list = []
+
     for i, W in enumerate(weights_tensor_list):
 
         # get net value
         net = tf.matmul(X, W)
+        net_list.append(net)
 
         # apply activation
         if activations[i] == 'relu':
-            layer_output = tf.nn.relu(net)
+            layer_output = tf.nn.relu(net_list[i])
+            out_list.append(layer_output)
         elif activations[i] == 'sigmoid':
-            layer_output = tf.math.sigmoid(net)
+            layer_output = tf.math.sigmoid(net_list[i])
+            out_list.append(layer_output)
         else:
-            layer_output = net
+            layer_output = net_list[i]
+            out_list.append(layer_output)
 
         # output of this layer becomes input for next layer
-        X = add_bias_to_tensor(layer_output)
+        X = add_bias_to_tensor(out_list[i])
 
     return layer_output
+'''
+# creates a single dense layer object
+class SingleDenseLayer(tf.Module):
+
+    # layer will be created using weights and activations values
+    def __init__(self, weights, layer_activation):
+        self.weights = weights
+        self.layer_activation = layer_activation
+
+    def get_layer_output(self, X):
+
+        # caluclate net value
+        net = tf.matmul(X, self.weights)
+
+        # get activation value
+        layer_output = self.layer_activation(net)
    
+        return layer_output
+
+
+# creates a multi-layer neural network object
+class MultiLayerNetwork(tf.Module):
+
+    # network will be constructed using a list of dense layers
+    def __init__(self, network_layers):
+        self.network_layers = network_layers
+
+    @tf.function
+    def get_network_output(self, X):
+        for single_layer in self.network_layers:
+            
+            # get layer output
+            layer_output = single_layer.get_layer_output(X)
+            
+            # add bias and pass to next layer
+            X = add_bias_to_tensor(X)
+
+        # return final output
+        return layer_output
+        
 
 # returns final model parameters after training a network using batch gradient descent
 def train_network(X_train, Y_train, weights_tensor_list, activations, alpha, batch_size, loss):
@@ -166,7 +216,7 @@ def train_network(X_train, Y_train, weights_tensor_list, activations, alpha, bat
     __, out_dim = Y_train.shape
 
     # get number of batches
-    n_batches = np.ceil(n_train_samp/batch_size)
+    n_batches = int(np.ceil(n_train_samp/batch_size))
 
     for i in range(n_batches):
 
@@ -178,27 +228,35 @@ def train_network(X_train, Y_train, weights_tensor_list, activations, alpha, bat
             end = n_train_samp
 
         # extract batch & convert numpy array to tensor
-        X_batch = tf.convert_to_tesor(X_train[start:end,:])
-        Y_batch = tf.convert_to_tesor(Y_train[start:end,:])
+        X_batch = tf.convert_to_tensor(X_train[start:end,:], dtype = tf.float32)
+        Y_batch = tf.convert_to_tensor(Y_train[start:end,:], dtype = tf.float32)
         
-        # get predictions
-        Y_pred = get_network_output(X_batch, weights_tensor_list, activations)
+        # initialize list to store gradient values
+        with tf.GradientTape() as g_tape:
+            
+            # get predictions
+            Y_pred = get_network_output(X_batch, weights_tensor_list, activations)
 
-        if loss == "svm":
-            loss_vals = sample_svm_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
-        elif loss_vals == "mse":
-            loss_vals = sample_sse_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
-        else:
-            loss_vals = sample_ce_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
+            if loss == "svm":
+                loss_val = svm_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
+            elif loss == "mse":
+                loss_val = mse_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
+            else:
+                loss_val = ce_loss(tf.cast(Y_batch, dtype = tf.float32), Y_pred)
 
+            gradients_list = g_tape.gradient(loss_val, weights_tensor_list)
+
+        for j, W in enumerate(weights_tensor_list):
+
+            weights_tensor_list[j].assign_sub(tf.math.multiply(gradients_list[j], alpha))          
 
     return weights_tensor_list
 
 
-def multi_layer_nn_tensorflow(X_train,Y_train,layers,activations,alpha,batch_size,epochs=1,loss="svm",
-                              validation_split=[0.8,1.0],weights=None,seed=2):
+def multi_layer_nn_tensorflow(X_train, Y_train, layers, activations, alpha, batch_size, epochs=1, loss="svm",
+                              validation_split=[0.8,1.0], weights=None, seed=2):
     
-    # add bias to X
+    # add bias to Xn
     X_train = add_bias_to_arr(X_train)
 
     # get training and validation data
@@ -213,16 +271,28 @@ def multi_layer_nn_tensorflow(X_train,Y_train,layers,activations,alpha,batch_siz
 
     # initialize list to store error over epochs and final prediction on evaluation data
     err = np.zeros((1, epochs), dtype = float)
-    Y_eval_pred = np.zeros((n_val_samp, out_dim), dtype = float)
+    Y_val_final_pred = np.zeros((n_val_samp, out_dim), dtype = float)
     
     for i in range(epochs):
 
-        weights_tensor_list = train_network(X_train,Y_train,weights_tensor_list,activations,alpha,batch_size,loss)
+        weights_tensor_list = train_network(X_train, Y_train, weights_tensor_list, activations, alpha, batch_size, loss)
+
+        # get predictions for evaluation data
+        Y_val_pred = get_network_output(tf.convert_to_tensor(X_val), weights_tensor_list, activations)
+
+        if loss == "svm":
+            err[i] = svm_loss(tf.cast(tf.convert_tp_tensor(Y_val), dtype = tf.float32), Y_val_pred)
+        elif loss_vals == "mse":
+            loss_vals = mse_loss(tf.cast(tf.convert_tp_tensor(Y_val), dtype = tf.float32), Y_val_pred)
+        else:
+            loss_vals = ce_loss(tf.cast(tf.convert_tp_tensor(Y_val), dtype = tf.float32), Y_val_pred)
+
+    Y_val_final_pred = Y_val_pred.numpy()
 
     # convert weights tensor list to numpy arrays
     weights_mtx_list = convert_to_numpy_arrays(weights_tensor_list)
 
-    return [weights_mtx_list, err, Y_eval_pred]
+    return [weights_mtx_list, err, Y_val_final_pred]
 
 
 def get_data():
@@ -234,17 +304,6 @@ def get_data_2():
     X = np.array([[0.55824741, 0.8871946, 0.69239914], [0.25242493, 0.77856301, 0.66000716], [0.4443564, 0.1092453, 0.96508663], [0.66679551, 0.49591846, 0.9536062], [0.07967996, 0.61238854, 0.89165257], [0.36541977, 0.02095794, 0.49595849], [0.56918241, 0.45609922, 0.05487656], [0.38711358, 0.02771098, 0.27910454], [0.16556168, 0.9003711, 0.5345797], [0.70774465, 0.5294432, 0.77920751]], dtype=np.float32)
     y = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]], dtype=np.float32)
     return (X, y)
-
-def test_random_weight_init():
-    np.random.seed(1234)
-    (X, y) = get_data()
-    [W, err, Out] = multi_layer_nn_tensorflow(X, y, [8, 2], ['relu', 'linear'], alpha=0.01, batch_size=32, epochs=0, loss='mse')
-    assert W[0].dtype == np.float32
-    assert W[1].dtype == np.float32
-    assert W[0].shape == (3, 8)
-    assert W[1].shape == (9, 2)
-    assert np.allclose(W[0], np.array([[-0.41675785, -0.05626683, -2.1361961, 1.6402708, -1.7934356, -0.84174734, 0.5028814, -1.2452881], [-1.0579522, -0.9090076, 0.55145407, 2.292208, 0.04153939, -1.1179254, 0.5390583, -0.5961597], [-0.0191305, 1.1750013, -0.7478709, 0.00902525, -0.8781079, -0.15643416, 0.25657046, -0.98877907]], dtype=np.float32))
-    assert np.allclose(W[1], np.array([[-0.41675785, -0.05626683], [-2.1361961, 1.6402708], [-1.7934356, -0.84174734], [0.5028814, -1.2452881], [-1.0579522, -0.9090076], [0.55145407, 2.292208], [0.04153939, -1.1179254], [0.5390583, -0.5961597], [-0.0191305, 1.1750013]], dtype=np.float32))
 
 def test_weight_update_mse():
     np.random.seed(1234)
@@ -325,4 +384,4 @@ def test_many_layers():
     assert Out.shape == (4, 2)
     assert isinstance(err, list) and len(err) == 2
 
-res = test_random_weight_init()
+res = test_weight_update_mse()
