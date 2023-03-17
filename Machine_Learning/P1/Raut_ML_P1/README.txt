@@ -11,16 +11,18 @@ Data files:
 
 
 ipython notebooks:
-1) P1_linear_regression.ipynnb : solutions and to problem 1 have been implemented in this notebook. Training and test files are of the following format:((x1, x2, .....xn), y)
+1) P1_linear_regression.ipynnb : solutions and to problem 1 have been implemented in this notebook. The datapoints in training and test files are of the following format:
+((x1, x2, .....xn), y)
 
-2) P1_locally_weighted_linear_regression.ipynb: solutions to problem 2 have been implemented in this notebook. Training and test files are of the following format:((x1, x2, .....xn), y)
+2) P1_locally_weighted_linear_regression.ipynb: solutions to problem 2 have been implemented in this notebook.The datapoints in training and test files are of the following format:
+((x1, x2, .....xn), y)
 
 3) P1_softmax_regression.ipynb: solutions to problem 3 have been implemented in this notebook. It also allows the user to input custom filenames for part 3 a) after running all the cells.
-Training and test files are of the following format:
+The datapoints in training and test files are of the following format: 
 Training: ((x1, x2, .....xn), y)
 Test: (x1, x2, .....xn)
 
-4) P1_softmax_regression.ipynb: solutions to problem 3 have been implemented in this notebook. Training and test files are of the following format:
+4) P1_softmax_regression.ipynb: solutions to problem 3 have been implemented in this notebook. The datapoints in training,test and evaluation files are of the following format:
 Training: ((x1, x2, .....xn), y)
 Test: (x1, x2, .....xn)
 Evaluation: ((x1, x2, .....xn), y)
