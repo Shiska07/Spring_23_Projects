@@ -9,12 +9,12 @@ from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 
-# create a dict to store all docs, filename is the key
+# create a list to store all filenames and document content
 filenames = []
 docs = []
 
 # read and store files
-corpusroot = './US_Inaugural_Addresses_s'
+corpusroot = './US_Inaugural_Addresses'
 for filename in os.listdir(corpusroot):
     if filename.startswith('0') or filename.startswith('1'):
         file = open(os.path.join(corpusroot, filename), "r", encoding='windows-1252')
@@ -23,12 +23,6 @@ for filename in os.listdir(corpusroot):
         file.close() 
         doc = doc.lower()
         docs.append(doc)
-
-
-# Get query string
-# query = str(input('Type search query:'))
-query = 'The Confederation which was early felt to be necessary was prepared from the models of the Batavian and Helvetic confederacies, the only examples which remain with any detail and precision in history, and certainly the only ones which the people at large had ever considered'
-query = query.lower()
 
 
 # returns a list of tokens after performing tokenization, stopword removal and stemming
@@ -49,9 +43,8 @@ def get_tokens(qstring):
 
 
 # creates a vocabulary list using collection and search query
-def get_vocab(collection, query):
+def get_vocab(collection):
     vocab_str = ''.join(collection)
-    vocab_str = vocab_str + query
     
     # tokenize vocab string
     all_vocab_tokens = get_tokens(vocab_str)
@@ -60,33 +53,32 @@ def get_vocab(collection, query):
     return unique_vocab_tokens
 
 
-# create vocabulary list
-vocab_list = get_vocab(docs, query)
-print(f'The vocabulary list consists of {len(vocab_list)} items.\n')
+# create vocabulary list using the corpus
+vocab_list = get_vocab(docs)
 
-# returns tf vector for a given document/query string
-def get_tf_count_vector(str_tokens):
+
+# returns tf vector for a given document/query string using the vocabulary
+def get_tf_count_vector(tokens_list):
         
-    # stores tf values for a the given string
-    str_tf_vec = []
+    # stores tf values of tokens in tokens_List
+    raw_tf_vec = []
     for token in vocab_list:
-        count = str_tokens.count(token)
-        str_tf_vec.append(count)
+        count = tokens_list.count(token)
+        raw_tf_vec.append(count)
 
-    return str_tf_vec
+    # return a list containing raw tf values
+    return raw_tf_vec
 
 
 '''
-FiILE & QUERY TOKENIZATION
+DOCUMENT TOKENIZATION
 Convert all document strings into tokens for df counting.
-'tokens_for_each_file' is a dictionary that contains tokens for all individual files(key) including the query
+'tokens_for_each_file' is a dictionary that contains tokens for all individual files(key)
 '''
-tokens_for_each_file = {}
+tokens_for_each_doc = {}
 for i, doc in enumerate(docs):
-    tokens_for_each_file[filenames[i]] = get_tokens(doc)
-# append tokens for the query at the end
+    tokens_for_each_doc[filenames[i]] = get_tokens(doc)
 
-tokens_for_each_file['query'] = get_tokens(query)
 
 '''
 RAW DOCUMENT FREQUENCY(df) CALCULATION
@@ -94,68 +86,225 @@ RAW DOCUMENT FREQUENCY(df) CALCULATION
 in the vocabulary. Document frequency is specific to a certain term
 '''
 raw_dfs = {}
+
+# for each token in the corpus vocab
 for token in vocab_list:
+
+    # set token count to '0' initially
     raw_dfs[token] = 0
-    for k, v in tokens_for_each_file.items():
+    for k, v in tokens_for_each_doc.items():
+
+        # of token occurs in a doc, increase count
         if token in v:
             raw_dfs[token] = raw_dfs[token] + 1
 
 
 '''
-RAW TERM FREQUENCY CALCULATIOM
-'raw_tf' is a dictionary containing count vector for each file(including the query).
-Term frequency is specific to a specific term for a specific file.
+RAW TERM FREQUENCY(tf) CALCULATIOM
+'raw_tf' is a dictionary containing count vector for each doc.
+Term frequency is specific to a specific term for a specific doc.
 '''
-raw_tfs = {}
-for filename, token_list in tokens_for_each_file.items():
-    raw_tfs[filename] = get_tf_count_vector(token_list)
+docs_raw_tfs = {}
+for filename, token_list in tokens_for_each_doc.items():
+    docs_raw_tfs[filename] = get_tf_count_vector(token_list)
+
+
+# returns a list of tfidf vvalues givrn given a list of weighted tf and idf values
+def get_tfidf(tf_vec, idf_vec):
+
+    # initialize list to store tfidf values
+    tfidf_vec = []
+    n = len(tf_vec)
+    for i in range(n):
+        tfidf_vec.append(tf_vec[i]*idf_vec[i])
+
+    return tfidf_vec
+
+
+# normalizes components of a list
+def get_normalized_vec(tfidf_vec):
+
+    tfidf_sq = [n**2 for n in tfidf_vec]    # square each item
+    sum_of_sq = sum(tfidf_sq)               # sum of squares
+    sqrt_sum_of_sq = math.sqrt(sum_of_sq)   # normalizing factor
+
+    # if all values in tfidf_vec are zeros, that would
+    # lead to a zero division
+    if sqrt_sum_of_sq != 0:
+        norm_tfidf_vec = [(tfidf/sqrt_sum_of_sq) for tfidf in tfidf_vec]
+    else:
+        norm_tfidf_vec = tfidf_vec.copy()
+
+    return norm_tfidf_vec
+
+
+# retuns the dot product/cosine similarity of items in two lists
+def get_cosine_similarity(v1, v2):
+
+    n = len(v1)         # total number of items
+    sim_val = 0         # stores dot product
+    for i in range(n):
+
+        # since both document and query vectors are normalized,
+        # we can just multiply and add all components
+        sim_val = sim_val + (v1[i]*v2[i])
+
+    return sim_val
 
 
 '''
 VECTOR SPACE MODEL: lnc.ltc(ddd.qqq) weighing scheme
 1) weighted tf for both docs and query
-2) normal df for docs, weighted df for query
+2) raw df for docs, weighted idf for query
 3) cosine normalization for both docs and query
 '''
 
-# 1) weighted tf for both docs and query
-weighted_tfs = {}
-for filename, tf_vector in raw_tfs.items():
+# returns a list of weighted tf values given a list of raw tf values
+def get_weighted_tf(raw_tf_vec):
 
-    # get a list of weighted tf for each file
-    w_tf = []
-    for raw_tf in tf_vector:
+    # list to store weighted tf
+    w_tf_vec = []
+    for raw_tf in raw_tf_vec:
         if raw_tf > 0:
-            val = float(1 + math.log(raw_tf))
+            val = float(1 + math.log(raw_tf, 10))
         else: 
             val = 0
-        w_tf.append(val) 
-    weighted_tfs[filename] = w_tf
+        w_tf_vec.append(val)
+    
+    return w_tf_vec
 
 
-# 2) weighted idf for query
+# calculate weighted_tf for docs
+docs_weighted_tfs = {}
+for filename, raw_tf_vec in docs_raw_tfs.items(): 
+    docs_weighted_tfs[filename] = get_weighted_tf(raw_tf_vec)
+
+
+# calculate tfidf values for all docs
+tfidf_docs = {}
+for filename, w_tf_vec in docs_weighted_tfs.items():
+
+    # using 'lnc' scheme for 'ddd', we use weighted tf and raw df values
+    # for caluclating tf*idf
+    tfidf_vec = get_tfidf(w_tf_vec, list(raw_dfs.values()))
+
+    # store normalized tfidf vector
+    tfidf_docs[filename] = get_normalized_vec(tfidf_vec)
+
+
+# weighted idf for query tokens
 def getidf(token):
+
+    if type(token) != str:
+        token = str(token)
     
     # N = total no. of documents in collection
     N = len(docs)
 
     if token in vocab_list:
         # calculate weighted document frequency
-        w_idf = math.log(N/raw_dfs[token])
+        w_idf = math.log(N/raw_dfs[token], 10)
     else:
         w_idf = -1
+        print(f'token "{token}" does not exist in the corpus.\n')
 
     return w_idf
+
 
 # create a dictionary containing weighted idfs for each token
 weighted_idfs = {}
 for token in vocab_list:
     weighted_idfs[token] = getidf(token)
 
+
 # returns the tf-tdf weight of a specific token w.r.t a specific document
 def getweight(filename, token):
-    pass
+
+    if type(filename) != str:
+        filename = str(filename)
+
+    if type(token) != str:
+        token = str(token)
+
+    token_tfidf_val = float(0)
+    if filename in filenames:
+        if token in vocab_list:
+
+            # get index of the given token from vocab_list
+            token_idx = vocab_list.index(token)
+
+            # get tfidf value of token from 'tfidf_docs' dict containing
+            # tfidf values for all docs
+            token_tfidf_val = tfidf_docs[filename][token_idx]
+        else:
+            print(f'token "{token}" does not exist in the corpus.\n')
+    else:
+        print(f'file "{filename}" does not exist in the corpus.\n')
+
+    return token_tfidf_val
+
 
 # returns the name and score of the highest matching document
 def query(qstring):
-    pass
+
+    if type(qstring) != str:
+        qstring = str(qstring)
+
+    # lowercase all query letters
+    qstring_l = qstring.lower()
+    qstring_tokens = get_tokens(qstring_l)
+
+    # initialize dict to store similarity values
+    cosine_sim = {}
+
+    # get weighted tf vector for query
+    raw_tf_query = get_tf_count_vector(qstring_tokens)
+    w_tf_query = get_weighted_tf(raw_tf_query)
+
+    # as per the 'ltc'weighing scheme for 'qqq', we use weighted idf values
+    w_idfs = list(weighted_idfs.values())
+
+    # get tfidf values
+    tfidf_query = get_tfidf(w_tf_query, w_idfs)
+
+    # normalize values
+    tfidf_query_norm = get_normalized_vec(tfidf_query)
+    
+    # caluclate cosine similarity with each doc
+    for filename in filenames:
+
+        # calculate cosine similarity of query with all docs
+        cosine_sim[filename] = get_cosine_similarity(tfidf_docs[filename], tfidf_query_norm)
+
+    # get filename with maximum similarity
+    max_sim_fname = ''
+    max_sim_val = float(0)
+    for fname, sim_val in cosine_sim.items():
+        if sim_val > max_sim_val:
+            max_sim_fname = fname
+            max_sim_val = sim_val
+
+    if max_sim_fname == '':
+        print(f'No matches found for query "{qstring}".\n')
+
+    return (max_sim_fname, max_sim_val)
+
+
+
+print("%.12f" % getidf('british'))
+print("%.12f" % getidf('union'))
+print("%.12f" % getidf('war'))
+print("%.12f" % getidf('power'))
+print("%.12f" % getidf('great'))
+print("--------------")
+print("%.12f" % getidf('great'))
+print("%.12f" % getweight('07_madison_1813.txt','war'))
+print("%.12f" % getweight('12_jackson_1833.txt','union'))
+print("%.12f" % getweight('09_monroe_1821.txt','great'))
+print("%.12f" % getweight('05_jefferson_1805.txt','public'))
+print("--------------")
+print("(%s, %.12f)" % query("pleasing people"))
+print("(%s, %.12f)" % query("british war"))
+print("(%s, %.12f)" % query("false public"))
+print("(%s, %.12f)" % query("people institutions"))
+print("(%s, %.12f)" % query("violated willingly"))
