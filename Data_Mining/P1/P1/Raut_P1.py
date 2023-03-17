@@ -109,34 +109,6 @@ for filename, token_list in tokens_for_each_doc.items():
     docs_raw_tfs[filename] = get_tf_count_vector(token_list)
 
 
-'''
-VECTOR SPACE MODEL: lnc.ltc(ddd.qqq) weighing scheme
-1) weighted tf for both docs and query
-2) raw df for docs, weighted idf for query
-3) cosine normalization for both docs and query
-'''
-
-# returns a list of weighted tf values given a list of raw tf values
-def get_weighted_tf(raw_tf_vec):
-
-    # list to store weighted tf
-    w_tf_vec = []
-    for raw_tf in raw_tf_vec:
-        if raw_tf > 0:
-            val = float(1 + math.log(raw_tf))
-        else: 
-            val = 0
-        w_tf_vec.append(val)
-    
-    return w_tf_vec
-
-
-# calculate weighted_tf for docs
-weighted_tfs = {}
-for filename, raw_tf_vec in docs_raw_tfs.items(): 
-    weighted_tfs[filename] = get_weighted_tf(raw_tf_vec)
-
-
 # returns a list of tfidf vvalues givrn given a list of weighted tf and idf values
 def get_tfidf(tf_vec, idf_vec):
 
@@ -166,9 +138,51 @@ def get_normalized_vec(tfidf_vec):
     return norm_tfidf_vec
 
 
+# retuns the dot product/cosine similarity of items in two lists
+def get_cosine_similarity(v1, v2):
+
+    n = len(v1)         # total number of items
+    sim_val = 0         # stores dot product
+    for i in range(n):
+
+        # since both document and query vectors are normalized,
+        # we can just multiply and add all components
+        sim_val = sim_val + (v1[i]*v2[i])
+
+    return sim_val
+
+
+'''
+VECTOR SPACE MODEL: lnc.ltc(ddd.qqq) weighing scheme
+1) weighted tf for both docs and query
+2) raw df for docs, weighted idf for query
+3) cosine normalization for both docs and query
+'''
+
+# returns a list of weighted tf values given a list of raw tf values
+def get_weighted_tf(raw_tf_vec):
+
+    # list to store weighted tf
+    w_tf_vec = []
+    for raw_tf in raw_tf_vec:
+        if raw_tf > 0:
+            val = float(1 + math.log(raw_tf, 10))
+        else: 
+            val = 0
+        w_tf_vec.append(val)
+    
+    return w_tf_vec
+
+
+# calculate weighted_tf for docs
+docs_weighted_tfs = {}
+for filename, raw_tf_vec in docs_raw_tfs.items(): 
+    docs_weighted_tfs[filename] = get_weighted_tf(raw_tf_vec)
+
+
 # calculate tfidf values for all docs
 tfidf_docs = {}
-for filename, w_tf_vec in weighted_tfs.items():
+for filename, w_tf_vec in docs_weighted_tfs.items():
 
     # using 'lnc' scheme for 'ddd', we use weighted tf and raw df values
     # for caluclating tf*idf
@@ -176,17 +190,6 @@ for filename, w_tf_vec in weighted_tfs.items():
 
     # store normalized tfidf vector
     tfidf_docs[filename] = get_normalized_vec(tfidf_vec)
-
-
-# retuns the dot product/cosine similarity of items in two lists
-def get_cosine_similarity(v1, v2):
-
-    n = len(v1)         # total number of items
-    sim_val = 0         # stores dot product
-    for i in range(n):
-        sim_val = sim_val + (v1[i]*v2[i])
-
-    return sim_val
 
 
 # weighted idf for query tokens
@@ -200,7 +203,7 @@ def getidf(token):
 
     if token in vocab_list:
         # calculate weighted document frequency
-        w_idf = math.log(N/raw_dfs[token])
+        w_idf = math.log(N/raw_dfs[token], 10)
     else:
         w_idf = -1
         print(f'token "{token}" does not exist in the corpus.\n')
@@ -223,7 +226,7 @@ def getweight(filename, token):
     if type(token) != str:
         token = str(token)
 
-    tfidf_val = float(0)
+    token_tfidf_val = float(0)
     if filename in filenames:
         if token in vocab_list:
 
@@ -232,13 +235,13 @@ def getweight(filename, token):
 
             # get tfidf value of token from 'tfidf_docs' dict containing
             # tfidf values for all docs
-            tfidf_val = tfidf_docs[filename][token_idx]
+            token_tfidf_val = tfidf_docs[filename][token_idx]
         else:
             print(f'token "{token}" does not exist in the corpus.\n')
     else:
         print(f'file "{filename}" does not exist in the corpus.\n')
 
-    return tfidf_val
+    return token_tfidf_val
 
 
 # returns the name and score of the highest matching document
@@ -285,3 +288,23 @@ def query(qstring):
         print(f'No matches found for query "{qstring}".\n')
 
     return (max_sim_fname, max_sim_val)
+
+
+
+print("%.12f" % getidf('british'))
+print("%.12f" % getidf('union'))
+print("%.12f" % getidf('war'))
+print("%.12f" % getidf('power'))
+print("%.12f" % getidf('great'))
+print("--------------")
+print("%.12f" % getidf('great'))
+print("%.12f" % getweight('07_madison_1813.txt','war'))
+print("%.12f" % getweight('12_jackson_1833.txt','union'))
+print("%.12f" % getweight('09_monroe_1821.txt','great'))
+print("%.12f" % getweight('05_jefferson_1805.txt','public'))
+print("--------------")
+print("(%s, %.12f)" % query("pleasing people"))
+print("(%s, %.12f)" % query("british war"))
+print("(%s, %.12f)" % query("false public"))
+print("(%s, %.12f)" % query("people institutions"))
+print("(%s, %.12f)" % query("violated willingly"))
