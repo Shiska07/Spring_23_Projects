@@ -63,7 +63,7 @@ def test_error_vals_cross_entropy():
     assert np.allclose(err, [4.146377, 3.9781787, 3.82751, 3.6944547])
 
 # ignore this test for now it has a bug
-'''
+
 def test_many_layers():
     np.random.seed(1234)
     (X, y) = get_data()
@@ -78,4 +78,4 @@ def test_many_layers():
     assert W[7].shape == (10, 2)
     assert Out.shape == (4, 2)
     assert isinstance(err, list) and len(err) == 2
-'''
+
