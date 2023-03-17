@@ -55,18 +55,22 @@ def get_weights_list(input_dim, weights, layers, seed):
     return weights_list
 
 
+
 # returns svm loss of a batch
 def svm_loss(Y, Y_pred):
 
-   # initialize delta value
-    # invert values to make sure it is 0 for correct class label
-    delta = tf.bitwise.invert(Y)
+    # initialize delta value
+    n_samples = Y.numpy().shape[0]
+    # invert values of Y so delta(1) does not get added to the correct class value
+    delta = tf.constant(np.invert((Y.numpy()).astype('bool')), dtype = tf.float32)
 
     # create a tensor of zeros
     zeros_tnsr = tf.zeros((Y.numpy().shape), dtype = tf.float32)
 
+    Y_st = tf.reshape(tf.reduce_sum(tf.math.multiply(Y_pred, Y), axis = 1), shape = (n_samples, 1))
+
     # get margin values (yj - yst + delta)
-    margins = tf.add(tf.subtract(Y_pred, tf.reduce_sum(tf.math.multiply(Y_pred, Y), axis = 1)), delta)
+    margins = tf.add(tf.subtract(Y_pred, Y_st), delta)
 
     # get maximum margin
     max_margins = tf.math.maximum(zeros_tnsr, margins)
@@ -81,7 +85,7 @@ def svm_loss(Y, Y_pred):
 def mse_loss(Y, Y_pred):
 
     # caluclate mean squared error
-    mse_loss = tf.reduce_mean(tf.square(tf.subtract(Y, Y_pred)))
+    mse_loss = tf.reduce_mean(tf.reduce_mean(tf.square(tf.subtract(Y, Y_pred)), axis = 1), axis = 0)
 
     return mse_loss
 
@@ -108,6 +112,15 @@ def get_activation_func_list(activations):
             act_func_list.append(tf.identity)
 
     return act_func_list
+
+# This function was imported from 'helpers.py' provided by Jason
+def generate_batches(X, y, batch_size=32):
+    for i in range(0, X.shape[0], batch_size):
+        yield X[i:i+batch_size], y[i:i+batch_size]
+
+    # if there's any data left, yield it
+    if X.shape[0] % batch_size != 0:
+        yield X[-(X.shape[0] % batch_size):], y[-(X.shape[0] % batch_size):]
 
 
 # creates a single dense layer object
@@ -257,21 +270,19 @@ def train_network(X_train, Y_train, nn_model, alpha, batch_size, loss_func):
     n_train_samp, n_feat = X_train.shape
     __, out_dim = Y_train.shape
 
-    # get number of batches
-    n_batches = int(np.ceil(n_train_samp/batch_size))
+    # create list to store batches
+    training_batches = []
 
-    for i in range(n_batches):
+    # generate and save batch in a list
+    for X, y in generate_batches(X_train, Y_train, batch_size):
+        training_batches.append([X, y])
 
-        # get indices for extracting a single batch
-        start = i*batch_size
-        end = (i+1)*batch_size
-
-        if end > n_train_samp:
-            end = n_train_samp
+    # adjust weights after each batch
+    for i, batch in enumerate(training_batches):
 
         # extract batch & convert numpy array to tensor
-        X_batch = tf.convert_to_tensor(X_train[start:end,:], dtype = tf.float32)
-        Y_batch = tf.convert_to_tensor(Y_train[start:end,:], dtype = tf.float32)
+        X_batch = tf.convert_to_tensor(batch[0], dtype = tf.float32)
+        Y_batch = tf.convert_to_tensor(batch[1], dtype = tf.float32)
         
         # initialize list to store gradient values
         with tf.GradientTape() as g_tape:
@@ -309,7 +320,7 @@ def multi_layer_nn_tensorflow(X_train, Y_train, layers, activations, alpha, batc
     weights_list = get_weights_list(input_dim, weights, layers, seed)
 
     # initialize list to store error over epochs and final prediction on evaluation data
-    err = np.zeros((1, epochs), dtype = float)
+    err = np.zeros(epochs, dtype = float)
 
     # create a list of tf_activation modules
     act_func_list = get_activation_func_list(activations)
@@ -336,21 +347,9 @@ def multi_layer_nn_tensorflow(X_train, Y_train, layers, activations, alpha, batc
         Y_val_pred = nn_model.get_network_output(tf.convert_to_tensor(X_val))
 
         # get error on prediction data
-        err[:,i] = loss_func(tf.cast(tf.convert_to_tensor(Y_val), dtype = tf.float32), Y_val_pred)
+        err[i] = loss_func(tf.cast(tf.convert_to_tensor(Y_val), dtype = tf.float32), Y_val_pred)
         
-    
-    return [weights_list, list(err.squeeze()), Y_val_pred.numpy()]
+    Y_val_pred = (Y_val_pred.numpy()).astype('float32')
 
-
-def get_data():
-    X = np.array([[0.685938, -0.5756752], [0.944493, -0.02803439], [0.9477775, 0.59988844], [0.20710745, -0.12665261], [-0.08198895, 0.22326154], [-0.77471393, -0.73122877], [-0.18502127, 0.32624513], [-0.03133733, -0.17500992], [0.28585237, -0.01097354], [-0.19126464, 0.06222228], [-0.0303282, -0.16023481], [-0.34069192, -0.8288299], [-0.20600465, 0.09318836], [0.29411194, -0.93214977], [-0.7150941, 0.74259764], [0.13344735, 0.17136675], [0.31582892, 1.0810335], [-0.22873795, 0.98337173], [-0.88140666, 0.05909261], [-0.21215424, -0.05584779]], dtype=np.float32)
-    y = np.array([[0.0, 1.0], [0.0, 1.0], [0.0, 1.0], [1.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 0.0], [1.0, 0.0], [1.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0], [0.0, 1.0], [0.0, 1.0], [1.0, 0.0]], dtype=np.float32)
-    return (X, y)
-
-def get_data_2():
-    X = np.array([[0.55824741, 0.8871946, 0.69239914], [0.25242493, 0.77856301, 0.66000716], [0.4443564, 0.1092453, 0.96508663], [0.66679551, 0.49591846, 0.9536062], [0.07967996, 0.61238854, 0.89165257], [0.36541977, 0.02095794, 0.49595849], [0.56918241, 0.45609922, 0.05487656], [0.38711358, 0.02771098, 0.27910454], [0.16556168, 0.9003711, 0.5345797], [0.70774465, 0.5294432, 0.77920751]], dtype=np.float32)
-    y = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]], dtype=np.float32)
-    return (X, y)
-
-
+    return [weights_list, (err).tolist() , Y_val_pred]
 
