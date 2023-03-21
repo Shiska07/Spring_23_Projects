@@ -1,0 +1,34 @@
+CSE5334 Data Mining
+Spring 2023
+Programming Assignment 1 (P1) grading rubrics:
+
+Your program will be evaluated using the following criteria: 
+
+(1) Correctness (75 Points)
+
+We will evaluate your code by calling the functions specificed in the P1_guidelines.ipynb file (getidf - 20 points; getweight - 25 points; query - 30 points). So, make sure to use the same function names, parameter names/types/orders as specified above. We will use the above test cases and other queries and tokens to test your program.
+
+* getidf(token): return the inverse document frequency (idf = log10 N/dft) of a token. If the token doesn't exist in the corpus, return -1. The parameter 'token' is already stemmed. 
+
+* getweight(filemae,token): return the TF-IDF weight of a token in the document named 'filename'. If the token doesn't exist in the document, return 0. The parameter 'token' is stemmed before calculating the weight.  
+
+* query(qstring): return a tuple in the form of (filename of the document, score), where the document is the query answer with respect to the lnc.ltc weighting scheme.
+
+
+(2) Efficiency(15 points)
+We will run the codes of all students to get a median speed as reference. We will assign more points to faster programs. 
+
+1st tier : 15 points.
+2nd tier : 10 points
+3rd tier : 5 points.
+Extremely slow or not doing anything meaningful: 0 points. 
+
+(3) Quality (Clarity, organization, modularity, documentation) :10 points
+Follow good coding standards to make your program easy to understand by others and easy to maintain/extend.
+
+High mark  : 10 points
+Medium mark : 5 points
+Low mark : 0 points
+
+Your score will be calculated from the individual break-ups using the following equation:
+(Correctness * .75) + (Efficiency * .15) + (Quality * .10)
