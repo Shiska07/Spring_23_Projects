@@ -141,7 +141,6 @@ class SingleDenseLayer:
         self.W.assign_sub(tf.multiply(gradients_w, alpha))
         self.b.assign_sub(tf.multiply(gradients_b, alpha))
 
-        # returns weight
 
     def get_weights(self):
         return self.W

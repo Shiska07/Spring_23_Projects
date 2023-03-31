@@ -1,4 +1,5 @@
 import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 import unittest.mock
 import numpy as np
 import tensorflow as tf
@@ -223,3 +224,4 @@ def test_ypred():
 
     assert Y_pred.shape == (100,), "Y_pred should be a 1-D array of length 100"
     assert np.allclose(Y_pred, ground_truth), "Y_pred does not match the expected output"
+
