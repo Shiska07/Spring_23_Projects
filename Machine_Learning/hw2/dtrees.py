@@ -1,4 +1,5 @@
 import math
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -80,65 +81,6 @@ def get_encoded_Y(Y):
 
     return encoded_arr, inv_encoding_dict
 
-# READ FILE
-fname = '2_data.txt'
-
-# read data
-X, Y = get_X_Y_arrays(fname, float, str)
-
-# get encoded Y
-encoded_Y, decoding_dict = get_encoded_Y(Y)
-
-# split data into training and test
-X_train, Y_train, X_test, Y_test = split_data(X, encoded_Y)
-
-# create dataframe
-df_train = pd.DataFrame(np.concatenate((X_train, Y_train.reshape(X_train.shape[0], 1)), axis = 1),
-                  columns = ['height', 'diameter', 'weight', 'hue', 'labels'], dtype = np.float32)
-
-df_test = pd.DataFrame(np.concatenate((X_test, Y_test.reshape(X_test.shape[0], 1)), axis = 1),
-                  columns = ['height', 'diameter', 'weight', 'hue', 'labels'], dtype = np.float32)
-
-
-# given a dataframe and a feature name, sorts the df and calculates thresholds
-def get_thresholds(df, feat_name):
-
-    # sort dataframe according to the given label
-    df_sorted = df.sort_values(feat_name, axis = 0, ascending = True, ignore_index = True)
-
-    n_samp = df_sorted.shape[0]
-    thresholds = []
-    ser = df_sorted[feat_name]
-
-    for i in range(n_samp - 1):
-        val = (ser[i] + ser[i+1])/2
-        thresholds.append(val)
-
-    return df_sorted, thresholds
-
-
-# calculates entropy of left and right child
-def entropy(val_count):
-
-    # get total classes and items
-    n_classes = val_count.size
-    n_samp = np.sum(val_count)
-
-    val_count_non_zero = np.ones(val_count.size)
-
-    for n in range(n_classes):
-        if val_count[n] != 0:
-            val_count_non_zero[n] = val_count[n]
-
-    # if any of the nodes have 0 items, the netropy will be 0
-    if n_samp == 0:
-        entropy_val = 0
-    else:
-        # log(0) can cause error so replace term with 1
-        entropy_val = np.dot(val_count / n_samp, np.log(val_count_non_zero / n_samp))
-
-    return entropy_val
-
 
 # splits a df into two based on a feature's threshold
 def split_df(df, feat_name, threshold):
@@ -150,15 +92,72 @@ def split_df(df, feat_name, threshold):
     return l_df, r_df
 
 
-# calculates the best threshold, lowest entropy and best attribute to split on given a dataframe
-def get_best_threshold(df, feat_name, label_name):
+# returns the label of a leaf node given Y labels
+def get_leaf_value(Y_ser):
 
-    # get number of classes and samples
-    n_classes = df[label_name].nunique()
+    # return label with the highest count
+    most_count = Y_ser.mode()[0]
+
+    return most_count
+
+
+# given a dataframe and a feature name, sorts the df and calculates thresholds
+def get_thresholds(df, feat_name, n_samp):
+
+    # sort dataframe according to the given label
+    df_sorted = df.sort_values(feat_name, axis = 0, ascending = True, ignore_index = True)
+
+    # initialize list to store threshold values
+    thresholds = []
+    ser = df_sorted[feat_name]
+
+    for i in range(n_samp - 1):
+        val = (ser[i] + ser[i+1])/2
+        thresholds.append(val)
+
+    return df_sorted, thresholds
+
+
+# calculates entropy of the given array
+def entropy(val_count):
+
+    # get total classes and items
+    n_classes = val_count.size
+    n_samp = np.sum(val_count)
+
+    # if the no of samples are 0 return 0
+    if n_samp == 0:
+        return 0
+
+    # if any of the elements are 0, math.log will throw an error
+    if not np.all(val_count):
+
+        # initialize an array on ones
+        val_count_non_zero = np.ones(val_count.size)
+
+        # replace elements fo non-zero
+        for n in range(n_classes):
+            if val_count[n] != 0:
+                val_count_non_zero[n] = val_count[n]
+
+        # calculate entropy and return
+        return -1*np.dot(val_count / n_samp, np.log2(val_count_non_zero / n_samp))
+
+    else:
+        # calculate entropy and return
+        return -1*np.dot(val_count / n_samp, np.log2(val_count / n_samp))
+
+
+
+# calculates the best threshold for a given feature
+def get_best_threshold(df, feat_name, n_classes, label_name):
+
+    # get number of samples and list of labels
     n_samp = df.count()[label_name]
+    labels_list = df[label_name].unique().tolist()
 
     # get sorted df and thresholds
-    df_sorted, thresholds = get_thresholds(df, feat_name)
+    df_sorted, thresholds = get_thresholds(df, feat_name, n_samp)
 
     # number of data items for each class on the left and right side of the treshold
     l_counts = np.zeros(n_classes, dtype = np.int16)
@@ -173,10 +172,10 @@ def get_best_threshold(df, feat_name, label_name):
     # for each threshold
     for thres_val in thresholds:
         # for each class
-        for c in range(n_classes):
-            l_counts[c] = df_sorted[(df_sorted[label_name] == c) &
+        for i, label in enumerate(labels_list):
+            l_counts[i] = df_sorted[(df_sorted[label_name] == label) &
                                            (df_sorted[feat_name] <= thres_val)]['feat_name'].count()
-            r_counts[c] = df_sorted[(df_sorted[label_name] == c) &
+            r_counts[i] = df_sorted[(df_sorted[label_name] == label) &
                                            (df_sorted[feat_name] > thres_val)]['feat_name'].count()
 
         l_entropy = entropy(l_counts)
@@ -190,48 +189,44 @@ def get_best_threshold(df, feat_name, label_name):
 
     return best_threshold, min_entropy, min_l_entropy, min_r_entropy
 
+
 # calculates the best attribute to split a node on
 def get_best_split(df, n_classes, entropy_p, label_name):
+
     # create a list of all attributes
     feat_list = df.columns[:-1].tolist()
-    best_feat_idx = 0                       # index of best feature to split on
 
-    l_entropy = math.log(n_classes, 1)
-    r_entropy = math.log(n_classes, 1)
+    # will store index of best feature to split on
+    best_feat_idx = 0
+
+    # set all entropy values to maximum
+    l_entropy = math.log(n_classes, 2)
+    r_entropy = math.log(n_classes, 2)
     min_entropy = (l_entropy + r_entropy)/2
 
     # store results for all features in a list
-    entropy_calculations = []
+    res_for_each_feat = []
     for feat in feat_list:
-        entropy_calculations.append([get_best_threshold(df, feat, label_name)])
+        res_for_each_feat.append([get_best_threshold(df, feat, n_classes, label_name)])
 
     # get feature with minimum split entropy
     for i in range(len(feat_list)):
-        if entropy_calculations[i][1] < min_entropy:
-            min_entropy = entropy_calculations[i][1]
+        if res_for_each_feat[i][1] < min_entropy:
+            min_entropy = res_for_each_feat[i][1]
             best_feat_idx = i
 
     # calculate information gain and store entropy values
     info_gain = entropy_p - min_entropy
     best_feat = feat_list[best_feat_idx]
-    best_thresh = entropy_calculations[best_feat_idx][0]
-    l_entropy = entropy_calculations[best_feat_idx][2]
-    r_entropy = entropy_calculations[best_feat_idx][3]
+    best_thresh = res_for_each_feat[best_feat_idx][0]
+    l_entropy = res_for_each_feat[best_feat_idx][2]
+    r_entropy = res_for_each_feat[best_feat_idx][3]
 
     return best_feat, best_thresh, info_gain, l_entropy, r_entropy
 
 
-# returns the label of a leaf node given Y labels
-def get_leaf_value(Y_ser):
-
-    # return label with the highest count
-    most_count = Y_ser.mode()[0]
-
-    return decoding_dict[most_count]
-
-
 class Node:
-    def __int__(self, feat_name=None, threshold=None, node_entropy=None, l_node = None, r_node = None, class_label = None):
+    def __int__(self, feat_name=None, threshold=None, node_entropy=None, l_node=None, r_node=None, class_label=None):
 
         self.feat_name = feat_name        # splitting feature
         self.threshold = threshold        # splitting threshold
@@ -242,7 +237,7 @@ class Node:
 
 
 class DTreeClassifier:
-    def __init__(self, max_depth = None, min_samp_to_split = 2):
+    def __init__(self, max_depth = float('inf'), min_samp_to_split = 2):
 
         # major attributes are root, mx_depth and min samples required for splitting
         self.root = None
@@ -250,30 +245,62 @@ class DTreeClassifier:
         self.min_samp_to_split = min_samp_to_split
 
     # recursively builds a descision tree classifier
-    def build_tree(self, df, label_name, curr_depth = 0):
+    def build_desc_tree(self, df, label_name, curr_depth = 0):
 
-        # get total number of classes and samples
-        n_classes = df[label_name].nunique()
+        # get total number of classes, samples and class label
+        labels_list = df[label_name].unique().tolist()
+        n_classes = len(labels_list)
         n_samples = df.count()[label_name]
 
         # calculate entropy of parent
         p_val_counts = np.zeros(n_classes)
-        for c in range(n_classes):
-            p_val_counts[c] = df[df[label_name] == c][label_name].count()
+        for i, label in enumerate(labels_list):
+            p_val_counts[i] = df[df[label_name] == label][label_name].count()
         entropy_p = entropy(p_val_counts)
 
         # only split if these criteria are met
         if n_samples > self.min_samp_to_split and curr_depth < self.max_depth:
-            feat_name, threshold, info_gain, l_entropy, r_entropy = get_best_split(df_train, entropy_p, n_classes,
+            best_feat, best_thresh, max_info_gain, l_entropy, r_entropy = get_best_split(df, n_classes, entropy_p,
                                                                                    label_name)
-            if info_gain > 0:
-                l_df, r_df = split_df(df_train, feat_name, threshold)
-                l_node = self.build_tree(l_df, label_name, curr_depth + 1)
-                r_node = self.build_tree(r_df, label_name, curr_depth + 1)
+            if max_info_gain > 0:
+                l_df, r_df = split_df(df, best_feat, best_thresh)
+                l_node = self.build_desc_tree(l_df, label_name, curr_depth + 1)
+                r_node = self.build_desc_tree(r_df, label_name, curr_depth + 1)
 
-                return Node(feat_name, threshold, entropy_p, l_node, r_node)
+                return Node(best_feat, best_thresh, entropy_p, l_node, r_node)
 
         node_class_label = get_leaf_value(df['label_name'])
+
         return Node(class_label = node_class_label)
 
+    # function to train descision tree
+    def fit_data(self, df, label_name):
 
+        self.root = self.build_desc_tree(df, label_name)
+
+
+def main():
+
+    # READ FILE
+    fname = '2_data.txt'
+
+    # read data
+    X, Y = get_X_Y_arrays(fname, float, str)
+
+    # get encoded Y
+    encoded_Y, decoding_dict = get_encoded_Y(Y)
+
+    # split data into training and test
+    X_train, Y_train, X_test, Y_test = split_data(X, encoded_Y)
+
+    # create dataframe
+    df_train = pd.DataFrame(np.concatenate((X_train, Y_train.reshape(X_train.shape[0], 1)), axis=1),
+                            columns=['height', 'diameter', 'weight', 'hue', 'labels'], dtype=np.float32)
+
+    df_test = pd.DataFrame(np.concatenate((X_test, Y_test.reshape(X_test.shape[0], 1)), axis=1),
+                           columns=['height', 'diameter', 'weight', 'hue', 'labels'], dtype=np.float32)
+
+    my_desc_tree = DTreeClassifier( )
+    my_desc_tree.fit_data(df_test, 'labels')
+
+main()
