@@ -12,17 +12,23 @@ from keras import Model, Input, layers
 # import tensorflow.keras as keras
 
 class CNN(object):
-    def __init__(self):
+    def __init__(self, name = None):
+        self.name = name
         self.model = None
-        self.loss_func = None
-        self.metric = None
-        optimizer = None
+        self.loss = None
+        self.metrics = []
+        self.optimizer = None
+        self.learning_rate = None
+        self.momentum = None
         self.layers = []
+        self.inputs = None
+        self.outputs = None
 
 
     def add_input_layer(self, shape=(2,),name="" ):
 
-        self.layers.append(layers.InputLayer(shape, name))
+        self.inputs = layers.InputLayer(shape, name)
+        self.layers.append(self.inputs)
         
 
     def append_dense_layer(self, num_nodes,activation="relu",name="",trainable=True):
@@ -62,7 +68,6 @@ class CNN(object):
     def get_weights_without_biases(self,layer_number=None,layer_name=""):
 
         if layer_number is not None:
-
             weights = self.layers[layer_number].get_weights()
 
             # checks if the layer has weights
@@ -82,124 +87,117 @@ class CNN(object):
                         return None
 
 
-        """
-        This method should return the weight matrix (without biases) for layer layer_number.
-        layer numbers start from zero. Note that layer 0 is the input layer.
-        This means that the first layer with activation function is layer zero
-         :param layer_number: Layer number starting from layer 0. Note that layer 0 is the input layer
-         and it does not have any weights or biases.
-         :param layer_name: Layer name (if both layer_number and layer_name are specified, layer number takes precedence).
-         :return: Weight matrix for the given layer (not including the biases). If the given layer does not have
-          weights then None should be returned.
-         """
-
-
     def get_biases(self,layer_number=None,layer_name=""):
 
         if layer_number is not None:
 
-            weights = self.layers[layer_number].get_weights()
+            layer_weights = self.layers[layer_number].get_weights()
 
-            # checks if the layer has weights
-            if len(weights) == 2:
-                return weights[1]
+            # checks if the layer has bias
+            if len(layer_weights) == 2:
+                return layer_weights[1]
             else:
                 return None
         else:
             for layer in self.layers:
                 if layer.name == layer_name:
-                    weights = layer.get_weights()
+                    layer_weights = layer.get_weights()
 
-                    # checks if the layer has weights
-                    if len(weights) == 2:
-                        return weights[1]
+                    # checks if the layer has bias
+                    if len(layer_weights) == 2:
+                        return layer_weights[1]
                     else:
                         return None
-        """
-        This method should return the biases for layer layer_number.
-        layer numbers start from zero. Note that layer 0 is the input layer.
-        This means that the first layer with activation function is layer zero
-         :param layer_number: Layer number starting from layer 0.Note that layer 0 is the input layer
-         and it does not have any weights or biases.
-         :param layer_name: Layer name (if both layer_number and layer_name are specified, layer number takes precedence).
-         :return: biases for the given layer (If the given layer does not have bias then None should be returned)
-         """
+
+
 
     def set_weights_without_biases(self,weights,layer_number=None,layer_name=""):
-        """
-        This method sets the weight matrix for layer layer_number.
-        layer numbers start from zero. Note that layer 0 is the input layer.
-        This means that the first layer with activation function is layer zero
-         :param weights: weight matrix (without biases). Note that the shape of the weight matrix should be
-          [input_dimensions][number of nodes]
-         :param layer_number: Layer number starting from layer 0. Note that layer 0 is the input layer
-         and it does not have any weights or biases.
-         :param layer_name: Layer name (if both layer_number and layer_name are specified, layer number takes precedence).
-         :return: None
-         """
+
+        # get current weights and replace with new weights
+        if layer_number is not None:
+            layer_weights = self.layers[layer_number].get_weights()
+
+            # checks if the layer has weights
+            if len(layer_weights) >= 1:
+                layer_weights[0] = weights
+                self.layers[layer_number].set_weights(layer_weights)
+
+        else:
+            for layer in self.layers:
+                if layer.name == layer_name:
+                    layer_weights = layer.get_weights()
+
+                    # checks if the layer has weights
+                    if len(layer_weights) >= 1:
+                        layer_weights[0] = weights
+                        layer.set_weights(layer_weights)
+
 
     def set_biases(self,biases,layer_number=None,layer_name=""):
-        """
-        This method sets the biases for layer layer_number.
-        layer numbers start from zero. Note that layer 0 is the input layer.
-        This means that the first layer with activation function is layer zero
-        :param biases: biases. Note that the biases shape should be [1][number_of_nodes]
-        :param layer_number: Layer number starting from layer 0. Note that layer 0 is the input layer
-         and it does not have any weights or biases.
-        :param layer_name: Layer name (if both layer_number and layer_name are specified, layer number takes precedence).
-        :return: none
-        """
+
+        # get current weights and replace with new bias
+        if layer_number is not None:
+            layer_weights = self.layers[layer_number].get_weights()
+
+            # checks if the layer has bias
+            if len(layer_weights) == 1:
+                layer_weights[1] = biases
+                self.layers[layer_number].set_weights(layer_weights)
+
+        else:
+            for layer in self.layers:
+                if layer.name == layer_name:
+                    layer_weights = layer.get_weights()
+
+                    # checks if the layer has bias
+                    if len(layer_weights) >= 1:
+                        layer_weights[0] = biases
+                        layer.set_weights(layer_weights)
+
 
     def remove_last_layer(self):
-        """
-        This method removes a layer from the model.
-        :return: removed layer
-        """
+
+        return self.layers.pop()
 
     def load_a_model(self,model_name="",model_file_name=""):
-        """
-        This method loads a model architecture and weights.
-        :param model_name: Name of the model to load. model_name should be one of the following:
-        "VGG16", "VGG19"
-        :param model_file_name: Name of the file to load the model (if both madel_name and
-         model_file_name are specified, model_name takes precedence).
-        :return: model
-        """
+
+        # import model
+        self.model = keras.models.load_model(model_file_name)
+
+        # set model name
+        self.model.name = model_name
+
+        # update model name for CNN object
+        self.name = self.model.name
+
 
     def save_model(self,model_file_name=""):
-        """
-        This method saves the current model architecture and weights together in a HDF5 file.
-        :param file_name: Name of file to save the model.
-        :return: model
-        """
+
+        self.model.save(model_file_name)
 
 
     def set_loss_function(self, loss="SparseCategoricalCrossentropy"):
-        """
-        This method sets the loss function.
-        :param loss: loss is a string with the following choices:
-        "SparseCategoricalCrossentropy",  "MeanSquaredError", "hinge".
-        :return: none
-        """
+
+        self.loss = loss
+
 
     def set_metric(self,metric):
-        """
-        This method sets the metric.
-        :param metric: metric should be one of the following strings:
-        "accuracy", "mse".
-        :return: none
-        """
+
+        self.metrics.append(metric)
+
 
     def set_optimizer(self,optimizer="SGD",learning_rate=0.01,momentum=0.0):
-        """
-        This method sets the optimizer.
-        :param optimizer: Should be one of the following:
-        "SGD" , "RMSprop" , "Adagrad" ,
-        :param learning_rate: Learning rate
-        :param momentum: Momentum
-        :return: none
-        """
 
+        if optimizer == "SGD":
+            self.optimizer = tf.keras.optimizers.experimental.SGD(learning_rate = learning_rate,
+                                                   momentum = momentum)
+        elif optimizer == "RMSprop":
+            self.optimizer = tf.keras.optimizers.experimental.RMSprop(learning_rate = learning_rate,
+                                                                      momentum = momentum)
+        elif optimizer == "Adagrad":
+            self.optimizer = tf.keras.optimizers.experimental.Adagrad(learning_rate = learning_rate,
+                                                                      ema_momentum = momentum,
+                                                                      use_ema = True)
     def predict(self, X):
         """
         Given array of inputs, this method calculates the output of the multi-layer network.
@@ -214,7 +212,29 @@ class CNN(object):
          :param y: Array of desired (target) outputs
          :return: loss value and metric value
          """
+
     def train(self, X_train, y_train, batch_size, num_epochs):
+
+        # if model has not been initialized
+        if self.model is None:
+
+            # input for the firt layer
+            x = self.layers[0]
+
+            # iterate through all layers
+            for i in range(1, len(self.layers)):
+
+                # output of current layer becomes input for next layer
+                x = self.layers[i](x)
+
+            # initialize model
+            self.model = Model(inputs = self.inputs, outputs = x)
+
+            # campile model
+            self.model.compile(optimizer = self.optimizer, loss = self.loss,
+                               metrics = self.metrics)
+
+
         """
          Given a batch of data, and the necessary hyperparameters,
          this method trains the neural network by adjusting the weights and biases of all the layers.

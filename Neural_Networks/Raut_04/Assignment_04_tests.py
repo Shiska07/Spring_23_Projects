@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from Kamangar_04_01 import CNN
+from Raut_04_01 import CNN
 import os
 
 
