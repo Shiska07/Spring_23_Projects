@@ -186,7 +186,14 @@ class CNN(object):
 
             # checks if the layer has weights
             if len(layer_weights) >= 1:
-                layer_weights[0] = weights
+
+                # remove weight from the list
+                layer_weights.pop(0)
+
+                # insert new weight
+                layer_weights.insert(0, weights)
+
+                # set new weight
                 self.cnn_layers[layer_number].set_weights(layer_weights)
 
         else:
@@ -196,7 +203,14 @@ class CNN(object):
 
                     # checks if the layer has weights
                     if len(layer_weights) >= 1:
-                        layer_weights[0] = weights
+
+                        # remove weight from the list
+                        layer_weights.pop(0)
+
+                        # insert new weight
+                        layer_weights.insert(0, weights)
+
+                        # set new weight
                         cnn_layer.set_weights(layer_weights)
 
 
@@ -212,8 +226,15 @@ class CNN(object):
             layer_weights = self.cnn_layers[layer_number].get_weights()
 
             # checks if the layer has bias
-            if len(layer_weights) == 1:
-                layer_weights[1] = biases
+            if len(layer_weights) == 2:
+
+                # remove weight from the list
+                layer_weights.pop(1)
+
+                # insert new weight
+                layer_weights.insert(1, biases)
+
+                # set new weight
                 self.cnn_layers[layer_number].set_weights(layer_weights)
 
         else:
@@ -222,8 +243,15 @@ class CNN(object):
                     layer_weights = cnn_layer.get_weights()
 
                     # checks if the layer has bias
-                    if len(layer_weights) >= 1:
-                        layer_weights[0] = biases
+                    if len(layer_weights) == 2:
+
+                        # remove weight from the list
+                        layer_weights.pop(1)
+
+                        # insert new weight
+                        layer_weights.insert(1, biases)
+
+                        # set new weight
                         cnn_layer.set_weights(layer_weights)
 
 
@@ -345,23 +373,31 @@ class CNN(object):
         # return
         return self.model_history.history
 
-
-def test_get_weights_without_biases_1():
+'''
+def test_predict():
+    # some of these may be duplicated
+    X = np.float32([[0.1, 0.2, 0.3, 0.4, 0.5, -0.1, -0.2, -0.3, -0.4, -0.5]])
+    X = np.float32([[0.1, 0.2, 0.3, 0.4, 0.5, 0,0,0,0,0]])
+    X = np.float32([np.linspace(0,10,num=10)])
+    # X = np.float32([[0.1, 0.2]])
     my_cnn = CNN()
-    input_size=np.random.randint(32,100)
-    number_of_dense_layers=np.random.randint(2,10)
-    my_cnn.add_input_layer(shape=(input_size,),name="input")
-    previous_nodes=input_size
-    for k in range(number_of_dense_layers):
-        number_of_nodes = np.random.randint(3, 100)
-        kernel_size= np.random.randint(3,9)
-        my_cnn.append_dense_layer(num_nodes=number_of_nodes,name="test_get_weights_without_biases_1"+str(k))
-        actual = my_cnn.get_weights_without_biases(layer_number=k+1)
-        assert actual.shape ==  (previous_nodes,number_of_nodes)
-        previous_nodes=number_of_nodes
+    my_cnn.add_input_layer(shape=(10,), name="input0")
+    my_cnn.append_dense_layer(num_nodes=5, activation='linear', name="layer1")
+    w = my_cnn.get_weights_without_biases(layer_name="layer1")
+    w_set = np.full_like(w, 2)
+    my_cnn.set_weights_without_biases(w_set, layer_name="layer1")
+    b=my_cnn.get_biases(layer_name="layer1")
+    b_set= np.full_like(b, 2)
+    b_set[0]=b_set[0]*2
+    my_cnn.set_biases(b_set, layer_name="layer1")
 
+    # my_cnn.append_dense_layer(num_nodes=5, activation='linear', name="layer12")
+    actual = my_cnn.predict(X)
+    assert np.array_equal(actual,np.array([[104., 102., 102., 102., 102.]]))
     return 0
 
-res = test_get_weights_without_biases_1()
+res = test_predict()
+'''
+
 
 

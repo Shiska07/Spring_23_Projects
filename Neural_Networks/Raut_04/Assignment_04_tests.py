@@ -221,7 +221,7 @@ def test_remove_last_layer():
     out = my_cnn.predict(X_train)
     assert out.shape==(number_of_train_samples_to_use,10)
 
-'''
+
 def test_predict():
     # some of these may be duplicated
     X = np.float32([[0.1, 0.2, 0.3, 0.4, 0.5, -0.1, -0.2, -0.3, -0.4, -0.5]])
@@ -242,26 +242,26 @@ def test_predict():
     # my_cnn.append_dense_layer(num_nodes=5, activation='linear', name="layer12")
     actual = my_cnn.predict(X)
     assert np.array_equal(actual,np.array([[104., 102., 102., 102., 102.]]))
-    
-def test_load_and_save_model():
-    # Note: This test may take a long time to load the data
-    my_cnn = CNN()
-    my_cnn.load_a_model(model_name="VGG19")
-    # my_cnn.append_dense_layer(num_nodes=10)
-    w=my_cnn.get_weights_without_biases(layer_name="block5_conv4")
-    assert w.shape == (3,3,512,512)
-    w = my_cnn.get_weights_without_biases(layer_number=-1)
-    assert w.shape == (4096,1000)
-    my_cnn.append_dense_layer(num_nodes=10,name="test_load_and_save_model")
-    path = os.getcwd()
-    file_path=os.path.join(path,"my_model.h5")
-    my_cnn.save_model(model_file_name=file_path)
-    my_cnn.load_a_model(model_name="VGG16")
-    w = my_cnn.get_weights_without_biases(layer_name="block4_conv1")
-    assert w.shape == (3, 3, 256, 512)
-    my_cnn.load_a_model(model_file_name=file_path)
-    os.remove(file_path)
-    w = my_cnn.get_weights_without_biases(layer_number=-1)
-    assert w.shape == (1000,10)
 
-'''
+
+def test_load_and_save_model():
+   # Note: This test may take a long time to load the data
+   my_cnn = CNN()
+   my_cnn.load_a_model(model_name="VGG19")
+   # my_cnn.append_dense_layer(num_nodes=10)
+   w=my_cnn.get_weights_without_biases(layer_name="block5_conv4")
+   assert w.shape == (3,3,512,512)
+   w = my_cnn.get_weights_without_biases(layer_number=-1)
+   assert w.shape == (4096,1000)
+   my_cnn.append_dense_layer(num_nodes=10,name="test_load_and_save_model")
+   path = os.getcwd()
+   file_path=os.path.join(path,"my_model.h5")
+   my_cnn.save_model(model_file_name=file_path)
+   my_cnn.load_a_model(model_name="VGG16")
+   w = my_cnn.get_weights_without_biases(layer_name="block4_conv1")
+   assert w.shape == (3, 3, 256, 512)
+   my_cnn.load_a_model(model_file_name=file_path)
+   os.remove(file_path)
+   w = my_cnn.get_weights_without_biases(layer_number=-1)
+   assert w.shape == (1000,10)
+
