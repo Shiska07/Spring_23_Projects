@@ -243,7 +243,6 @@ def test_predict():
     actual = my_cnn.predict(X)
     assert np.array_equal(actual,np.array([[104., 102., 102., 102., 102.]]))
 
-
 def test_load_and_save_model():
    # Note: This test may take a long time to load the data
    my_cnn = CNN()
@@ -264,4 +263,10 @@ def test_load_and_save_model():
    os.remove(file_path)
    w = my_cnn.get_weights_without_biases(layer_number=-1)
    assert w.shape == (1000,10)
+   
+
+
+
+
+
 

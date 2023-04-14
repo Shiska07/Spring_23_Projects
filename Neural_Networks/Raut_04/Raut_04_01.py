@@ -5,11 +5,12 @@
 
 
 # %tensorflow_version 2.x
+import os
 import tensorflow as tf
 import numpy as np
 import keras
 from keras import Model, Input, layers
-
+# import tensorflow.keras as keras
 
 class CNN(object):
     def __init__(self, name = None):
@@ -268,13 +269,42 @@ class CNN(object):
 
     def load_a_model(self,model_name="",model_file_name=""):
 
-        # load and complie model
-        self.cnn_model = keras.models.load_model(model_file_name)
+        # if model_name is provided
+        if len(model_name) != 0:
+
+            if model_name == "VGG16":
+
+                # load model from keras
+                self.cnn_model = tf.keras.applications.VGG16()
+
+            else:
+                # load model from keras
+                self.cnn_model = tf.keras.applications.VGG19()
+
+        # if file path is provided
+        elif len(model_file_name) != 0:
+
+            self.cnn_model = keras.models.load_model(model_file_name)
+
+
+        # empty the current list of layers
+        if len(self.cnn_layers) != 0:
+            self.cnn_layers.clear()
+            self.input_layer = False
+            self.model_compiled = False
+
+
+        self.add_input_layer(shape = self.cnn_model.input_shape[1::])
+
+        # add all the model's layers to the list
+        for i, layer in enumerate(self.cnn_model.layers):
+            # append all layers except the first input layer
+            if i != 0:
+                self.cnn_layers.append(layer)
+
+        # compile model
         self.compile_model()
         self.model_compiled = True
-
-        # set model name
-        self.cnn_model.name = model_name
 
         # update model name for CNN object
         self.name = self.cnn_model.name
@@ -284,7 +314,11 @@ class CNN(object):
 
     def save_model(self,model_file_name=""):
 
-        self.cnn_model.save(model_file_name)
+        # remove input layer and recompile model
+        self.compile_model()
+        self.model_compiled = True
+
+        self.cnn_model.save(model_file_name, save_format = "h5")
 
         return self.cnn_model
 
@@ -299,18 +333,21 @@ class CNN(object):
         self.metrics.append(metric)
 
 
+
     def set_optimizer(self,optimizer="SGD",learning_rate=0.01,momentum=0.0):
 
         if optimizer == "SGD":
-            self.optimizer = tf.keras.optimizers.experimental.SGD(learning_rate = learning_rate,
+            self.optimizer = tf.keras.optimizers.SGD(learning_rate = learning_rate,
                                                    momentum = momentum)
         elif optimizer == "RMSprop":
-            self.optimizer = tf.keras.optimizers.experimental.RMSprop(learning_rate = learning_rate,
+            self.optimizer = tf.keras.optimizers.RMSprop(learning_rate = learning_rate,
                                                                       momentum = momentum)
         elif optimizer == "Adagrad":
-            self.optimizer = tf.keras.optimizers.experimental.Adagrad(learning_rate = learning_rate,
+            self.optimizer = tf.keras.optimizers.Adagrad(learning_rate = learning_rate,
                                                                       ema_momentum = momentum,
                                                                       use_ema = True)
+
+
 
     def compile_model(self):
 
@@ -334,7 +371,6 @@ class CNN(object):
         # campile model
         self.cnn_model.compile(optimizer=self.optimizer, loss=self.loss,
                                metrics=self.metrics)
-
 
 
     def predict(self, X):
@@ -366,38 +402,11 @@ class CNN(object):
             self.compile_model()
             self.model_compiled = True
 
-        # train model
-        self.model_history = self.cnn_model.fit(X_train, y_train, batch_size=batch_size,
-                                                epochs=num_epochs)
+        # train model with validation split of 0.2
+        self.model_history = self.cnn_model.fit(X_train, y_train, batch_size = batch_size,
+                                                epochs = num_epochs, validation_split = 0.2)
 
         # return
         return self.model_history.history
-
-'''
-def test_predict():
-    # some of these may be duplicated
-    X = np.float32([[0.1, 0.2, 0.3, 0.4, 0.5, -0.1, -0.2, -0.3, -0.4, -0.5]])
-    X = np.float32([[0.1, 0.2, 0.3, 0.4, 0.5, 0,0,0,0,0]])
-    X = np.float32([np.linspace(0,10,num=10)])
-    # X = np.float32([[0.1, 0.2]])
-    my_cnn = CNN()
-    my_cnn.add_input_layer(shape=(10,), name="input0")
-    my_cnn.append_dense_layer(num_nodes=5, activation='linear', name="layer1")
-    w = my_cnn.get_weights_without_biases(layer_name="layer1")
-    w_set = np.full_like(w, 2)
-    my_cnn.set_weights_without_biases(w_set, layer_name="layer1")
-    b=my_cnn.get_biases(layer_name="layer1")
-    b_set= np.full_like(b, 2)
-    b_set[0]=b_set[0]*2
-    my_cnn.set_biases(b_set, layer_name="layer1")
-
-    # my_cnn.append_dense_layer(num_nodes=5, activation='linear', name="layer12")
-    actual = my_cnn.predict(X)
-    assert np.array_equal(actual,np.array([[104., 102., 102., 102., 102.]]))
-    return 0
-
-res = test_predict()
-'''
-
 
 
