@@ -108,7 +108,11 @@ def compute_cluster_centroids(X, cluster_assignments):
 
         # datapoints belonging to cluster i
         x_i = X[cluster_assignments == i]
-        centroids_dict[i] = np.sum(x_i, axis=0) / x_i.shape[0]
+
+        if x_i.shape[0] != 0:
+            centroids_dict[i] = np.sum(x_i, axis = 0) / x_i.shape[0]
+        else:
+            centroids_dict[i] = np.sum(x_i, axis=0)
 
     return centroids_dict
 
@@ -145,7 +149,7 @@ def get_predictions(X_train, Y_train, cluster_assignments):
     n_c = np.max(cluster_assignments) + 1
 
     # create array to store predictions
-    Y_pred = np.zeros(n_samp, dtype=object)
+    Y_pred = np.zeros(n_samp, dtype = object)
 
     # create dict to store majority label for the cluster
     cluster_labels = {}
@@ -242,6 +246,14 @@ def get_kmeans_clusters(X, k):
 
     return cluster_assignments
 
-final_cluster_assignments = get_kmeans_clusters(X_train, 3)
-Y_pred = get_predictions(X_train, Y_train, final_cluster_assignments)
-acc = get_weighted_acc(Y_pred, Y_train, final_cluster_assignments)
+## initialize list to store weighted accuracy values
+acc_vals = []
+k_list = [3, 6, 9]
+
+for k in k_list:
+    final_cluster_assignments = get_kmeans_clusters(X_train, k)
+    Y_pred = get_predictions(X_train, Y_train, final_cluster_assignments)
+    acc_vals.append(get_weighted_acc(Y_pred, Y_train, final_cluster_assignments))
+
+for i, k in enumerate(k_list):
+    print(f'The weighted accuracy for k = {k} is {acc_vals[i]:0.3f}.')
