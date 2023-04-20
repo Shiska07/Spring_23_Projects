@@ -16,16 +16,15 @@ class CNN(object):
     def __init__(self, name = None):
         self.name = name                        # model name
         self.cnn_model = None                   # keras cnn_model object
+        self.cnn_layers = []  # list of layers in the network
+        self.input_layer = False  # tracks whether input layer is present
         self.loss = None                        # loss type
         self.metrics = []                       # list of evaluation metrics
         self.optimizer = None                   # optimizer type
         self.learning_rate = None               # optimizer learning rate
         self.momentum = None                    # optimizer momentum
-        self.cnn_layers = []                    # list of layers in the network
-        self.input_layer = False                # tracks whether input layer is present
-        self.outputs = None                     # final layer output
         self.model_history = None               # model history
-        self.model_compiled = False
+        self.model_compiled = False             # tracks if the model has been compiled
 
 
     def add_input_layer(self, shape=(2,),name="" ):
@@ -38,7 +37,7 @@ class CNN(object):
         else:
             self.cnn_layers.append(keras.Input(shape = shape, name = name))
             self.input_layer = True
-        
+
 
     def append_dense_layer(self, num_nodes,activation="relu",name="",trainable=True):
 
@@ -117,6 +116,11 @@ class CNN(object):
         # if layer_numbers is a single number
         elif layer_numbers >= 0:
             self.cnn_layers[layer_numbers].trainable = trainable_flag
+
+
+        # recompile model as flags have been modified
+        self.compile_model()
+        self.model_compiled = True
 
 
 
@@ -214,6 +218,10 @@ class CNN(object):
                         # set new weight
                         cnn_layer.set_weights(layer_weights)
 
+        # recompile model as weights have been changed
+        self.compile_model()
+        self.model_compiled = True
+
 
     def set_biases(self,biases,layer_number=None,layer_name=""):
 
@@ -255,14 +263,17 @@ class CNN(object):
                         # set new weight
                         cnn_layer.set_weights(layer_weights)
 
+        # recompile model as weights have been changed
+        self.compile_model()
+        self.model_compiled = True
+
 
     def remove_last_layer(self):
 
-        # remove last layer
+        # remove last layer and recompile model
         removed_layer = self.cnn_layers.pop()
-
-        # update model as uncompiled
-        self.model_compiled = False
+        self.compile_model()
+        self.model_compiled = True
 
         return removed_layer
 
@@ -314,7 +325,7 @@ class CNN(object):
 
     def save_model(self,model_file_name=""):
 
-        # remove input layer and recompile model
+        # recompile model before saving
         self.compile_model()
         self.model_compiled = True
 
@@ -333,7 +344,6 @@ class CNN(object):
         self.metrics.append(metric)
 
 
-
     def set_optimizer(self,optimizer="SGD",learning_rate=0.01,momentum=0.0):
 
         if optimizer == "SGD":
@@ -346,7 +356,6 @@ class CNN(object):
             self.optimizer = tf.keras.optimizers.Adagrad(learning_rate = learning_rate,
                                                                       ema_momentum = momentum,
                                                                       use_ema = True)
-
 
 
     def compile_model(self):
@@ -406,7 +415,7 @@ class CNN(object):
         self.model_history = self.cnn_model.fit(X_train, y_train, batch_size = batch_size,
                                                 epochs = num_epochs, validation_split = 0.2)
 
-        # return
+        # return model history
         return self.model_history.history
 
 

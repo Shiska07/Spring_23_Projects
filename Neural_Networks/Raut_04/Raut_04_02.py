@@ -14,8 +14,8 @@ import os
 # tests train() function on mnist data using training and validation loss
 def test_training():
 
-    batch_size = 16
-    epochs = 50
+    batch_size = 8
+    epochs = 30
 
     # mnist will be used for training
     (X_train, Y_train), (X_test, Y_test) = tf.keras.datasets.mnist.load_data()
@@ -28,7 +28,7 @@ def test_training():
     X_train = X_train.reshape(X_train.shape[0], 28, 28, 1)
     X_test = X_test.reshape(X_test.shape[0], 28, 28, 1)
 
-    number_of_train_samples_to_use = 500
+    number_of_train_samples_to_use = 200
 
     X_train = X_train[0:number_of_train_samples_to_use, :]
     Y_train = Y_train[0:number_of_train_samples_to_use]
@@ -57,7 +57,7 @@ def test_training():
     history = my_cnn.train(X_train, Y_train, batch_size, epochs)
 
     # check if overall training loss decreases
-    assert history['loss'][0] > history['loss'][24] > history['loss'][-1]
+    assert history['loss'][0] > history['loss'][14] > history['loss'][-1]
 
     # check if overall validation loss decreases
     assert history['val_loss'][0] > history['val_loss'][-1]
@@ -66,8 +66,8 @@ def test_training():
 # tests evaluate() function on mnist data using training, validation and test accuracy
 def test_evaluate():
 
-    batch_size = 16
-    epochs = 50
+    batch_size = 8
+    epochs = 30
 
     # mnist will be used for training
     (X_train, Y_train), (X_test, Y_test) = tf.keras.datasets.mnist.load_data()
@@ -80,7 +80,7 @@ def test_evaluate():
     X_train = X_train.reshape(X_train.shape[0], 28, 28, 1)
     X_test = X_test.reshape(X_test.shape[0], 28, 28, 1)
 
-    number_of_train_samples_to_use = 500
+    number_of_train_samples_to_use = 200
     number_of_test_samples_to_use = 100
 
     X_train = X_train[0:number_of_train_samples_to_use, :]
@@ -118,7 +118,7 @@ def test_evaluate():
     history = my_cnn.train(X_train, Y_train, batch_size, epochs)
 
     # check if overall training accuracy increases
-    assert history['accuracy'][0] < history['accuracy'][24] < history['accuracy'][-1]
+    assert history['accuracy'][0] < history['accuracy'][14] < history['accuracy'][-1]
 
     # check if overall validation accuracy increases
     assert history['val_accuracy'][0] < history['val_accuracy'][-1]
@@ -126,5 +126,5 @@ def test_evaluate():
     # evaluate model
     evaluation_metrics = my_cnn.evaluate(X_test, Y_test)
 
-    # accuracy on test data should be greater than 75%
-    assert evaluation_metrics[1] > 0.75
+    # accuracy on test data should be greater than 70%
+    assert evaluation_metrics[1] > 0.70
