@@ -211,7 +211,7 @@ def train_softmax_regressor_batch(X_train, Y_train, weights_arr, alpha, epochs):
     # get number of features and samples
     n_feat, n_samples = X_train.shape
 
-    # get no of classes/labels
+    # get no of classes/labelsexit
     n_class, __ = Y_train.shape
 
     # get paramater matrix
@@ -227,14 +227,16 @@ def train_softmax_regressor_batch(X_train, Y_train, weights_arr, alpha, epochs):
 
         for j in range(n_samples):
             # pick a sample
-            x_sample = (weights_arr[:, j][0]) * X_train[:, j].reshape(n_feat, 1)
-            y_sample = (weights_arr[:, j][0]) * Y_train[:, j].reshape(n_class, 1)
+            x_sample = X_train[:, j].reshape(n_feat, 1)
+            y_sample = Y_train[:, j].reshape(n_class, 1)
 
             # get prediction value
             y_pred = get_sample_prediction_values(x_sample, model_params)
 
             # calculate gradient matrix
-            sample_gradient = np.dot((y_sample - y_pred), x_sample.transpose())
+            sample_gradient = (weights_arr[:, j][0]) * np.dot((y_sample - y_pred), x_sample.transpose())
+
+            # sample_gradient = np.dot((y_sample - y_pred), x_sample.transpose())
             gradient_mtx = gradient_mtx + sample_gradient
 
         # adjust parameter values using batch gradient descent
@@ -312,6 +314,24 @@ def get_weighted_error(Y_pred_encoded, Y_train_encoded, weights_arr, decoding_di
     return error[0]
 
 
+# calculates null error for the data according to class distribution
+def get_null_error(Y_train, n_classes, n_samples, decoding_dict):
+    # get labels
+    Y_train_labels = get_decoded_arr(Y_train, decoding_dict)
+
+    # get count of each label
+    value, counts = np.unique(Y_train_labels, return_counts=True)
+
+    # get max count value
+    max_count = max(counts)
+
+    # percent of data belonging to biggest class
+    null_acc = max_count / n_samples
+
+    # null error = 1 - null_acc
+    return 1 - null_acc
+
+
 # applying boosting and returns final model parameters and weights for all classifiers
 def apply_boosting(X_train, Y_train, n_classifiers, epochs, alpha, decoding_dict, encoding_dict):
     # get number of samples and classes
@@ -325,16 +345,17 @@ def apply_boosting(X_train, Y_train, n_classifiers, epochs, alpha, decoding_dict
     model_params_list = []
     model_weights_list = []
 
+    # get null error value
+    null_err = get_null_error(Y_train, n_classes, n_samples, decoding_dict)
+
     for i in range(n_classifiers):
 
         # train model and get predictions
         model_params, __ = train_softmax_regressor_batch(X_train, Y_train, weights_arr, alpha, epochs)
 
-        # add parameters to list
-        model_params_list.append(model_params)
-
         # get prediction on training data
         Y_pred_labels = get_predictions(X_train, model_params, decoding_dict)
+        Y_train_labels = get_decoded_arr(Y_train, decoding_dict)
 
         # get encoded predictions
         Y_pred_encoded = get_encoded_arr(Y_pred_labels, encoding_dict)
@@ -343,7 +364,10 @@ def apply_boosting(X_train, Y_train, n_classifiers, epochs, alpha, decoding_dict
         error = get_weighted_error(Y_pred_encoded, Y_train, weights_arr, decoding_dict)
 
         # if the model does better than random
-        if error < (1 - (1 / n_classes)):
+        if error < null_err:
+
+            # add parameters to list
+            model_params_list.append(model_params)
 
             # calculate and save model weight
             model_weight = get_model_weight(error, n_classes)
@@ -357,4 +381,58 @@ def apply_boosting(X_train, Y_train, n_classifiers, epochs, alpha, decoding_dict
     return model_params_list, model_weights_arr
 
 
-model_params_list, model_weights = apply_boosting(X_train, Y_train, 3, 1000, 0.01, decoding_dict, encoding_dict)
+# returns prediction on test data according to model weights
+def get_ensemble_prediction(X_test, model_params_list, model_weights_arr, decoding_dict, encoding_dict):
+
+    # get number of classifiers, samples and classes
+    n_classifiers = len(model_params_list)
+    n_samples = X_test.shape[1]
+    n_classes = len(decoding_dict.keys())
+
+    # create a list to store predictions for all classifiers
+    predictions_list = []
+
+    # create array to store weighted prediction from all classifiers
+    class_pred_wts = np.zeros((n_classes, n_samples), dtype=float)
+
+    # get predictions for each classifier
+    for i in range(n_classifiers):
+        # get labels and convert to one-hot
+        Y_pred_labels = get_predictions(X_test, model_params_list[i], decoding_dict)
+        Y_pred_encoded = get_encoded_arr(Y_pred_labels, encoding_dict)
+
+        predictions_list.append(Y_pred_encoded)
+
+    # create array of n_samples for column sclicing
+    idx_columns = np.arange(0, n_samples)
+
+    # calculate weighted vote for each prediction
+    for i in range(n_classifiers):
+        # class indices of predicted values
+        idx_pred_class = np.argmax(predictions_list[i], axis=0)
+
+        # add weight to label indices that were predicted
+        class_pred_wts[idx_pred_class, idx_columns] = class_pred_wts[idx_pred_class, idx_columns] \
+                                                      + model_weights_arr[:, i]
+
+    # final predcition is index with the highest weight along rows
+    final_predictions = np.argmax(class_pred_wts, axis = 0)
+
+    # get final labels
+    final_labels = np.zeros((1, n_samples), dtype = object)
+
+    for i in range(n_samples):
+        final_labels[:, i] = decoding_dict[final_predictions[i]]
+
+    return final_labels
+
+epochs = 4000
+alpha = 0.1
+n_classifiers = 1
+
+model_params, __ = apply_boosting(X_train, Y_train, n_classifiers, epochs, alpha, decoding_dict, encoding_dict)
+
+model_params_list, model_weights = apply_boosting(X_train, Y_train, 10, 5000, 0.1, decoding_dict, encoding_dict)
+
+Y_test_pred = get_ensemble_prediction(X_test, model_params_list, model_weights, decoding_dict, encoding_dict)
+
