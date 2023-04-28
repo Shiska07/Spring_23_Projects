@@ -5,7 +5,8 @@
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import layers, models, activations, regularizers
+import keras
+from keras import layers, models, activations, regularizers
 import matplotlib.pyplot as plt
 
 

@@ -40,7 +40,6 @@ def test_generator():
     np.testing.assert_allclose(before_target, before_actual, atol=1e-5)
 
 
-
 def test_discriminator():
     tf.keras.utils.set_random_seed(5368)
     discriminator_model = build_discriminator()
@@ -69,6 +68,7 @@ def test_discriminator():
     data = tf.random.normal([1, 28, 28, 1])
     before_actual = discriminator_model(data, training=False)
     assert abs(before_actual[0, 0] - (-0.30697495)) < 1e-5, "Discriminator output is incorrect on input"
+
 
 def test_dcgan_train_step():
     tf.keras.utils.set_random_seed(5368)
@@ -100,3 +100,4 @@ def test_dcgan_train_step():
     assert np.allclose(after_target, after_actual, atol=1e-3)
     assert abs(history.history['d_loss'][0] - 0.708788275718689) < 1e-3
     assert abs(history.history['g_loss'][0] - 0.6812016367912292) < 1e-3
+

@@ -123,7 +123,6 @@ class CNN(object):
         self.model_compiled = True
 
 
-
     def get_weights_without_biases(self,layer_number=None,layer_name=""):
 
         if layer_number is not None:

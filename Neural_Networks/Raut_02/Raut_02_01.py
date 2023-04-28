@@ -55,24 +55,24 @@ def get_weights_list(input_dim, weights, layers, seed):
 
 # returns svm loss of a batch
 def svm_loss(Y, Y_pred):
-    # initialize delta value
+
+    # rows are samples
     n_samples = Y.numpy().shape[0]
-    # invert values of Y so delta(1) does not get added to the correct class value
-    delta = tf.constant(np.invert((Y.numpy()).astype('bool')), dtype=tf.float32)
 
-    # create a tensor of zeros
-    zeros_tnsr = tf.zeros(Y.numpy().shape, dtype=tf.float32)
+    # get index of true class
+    true_class_idx = np.argmax(Y.numpy(), axis = 1)
 
-    Y_st = tf.reshape(tf.reduce_sum(tf.math.multiply(Y_pred, Y), axis=1), shape=(n_samples, 1))
+    cols_idx = np.arange(0, n_samples)
 
-    # get margin values (yj - yst + delta)
-    margins = tf.add(tf.subtract(Y_pred, Y_st), delta)
+    margins = (tf.maximum(0, tf.subtract(Y_pred, Y_pred.numpy()[cols_idx, true_class_idx].reshape(n_samples, 1)) + 1)).numpy()
 
-    # get maximum margin
-    max_margins = tf.math.maximum(zeros_tnsr, margins)
+    margins[cols_idx, true_class_idx] = 0
 
-    # sum over all classes and get total loss
-    loss = tf.reduce_mean(tf.reduce_sum(max_margins, axis=1))
+    # calculate samples loss
+    samp_losses = np.sum(margins, axis = 1)
+
+    # calculate total loss
+    loss = tf.reduce_mean(samp_losses)
 
     return loss
 
@@ -80,7 +80,7 @@ def svm_loss(Y, Y_pred):
 # returns sum of a batch
 def mse_loss(Y, Y_pred):
     # calculate mean squared error
-    loss = tf.reduce_mean(tf.reduce_mean(tf.square(tf.subtract(Y, Y_pred)), axis=1), axis=0)
+    loss = tf.reduce_mean(tf.square(tf.subtract(Y, Y_pred)))
 
     return loss
 
@@ -332,3 +332,18 @@ def multi_layer_nn_tensorflow(X_train, Y_train, layers, activations, alpha, batc
     Y_val_pred = (Y_val_pred.numpy()).astype('float32')
 
     return [weights_list, err.tolist(), Y_val_pred]
+
+
+def get_data():
+    X = np.array([[0.685938, -0.5756752], [0.944493, -0.02803439], [0.9477775, 0.59988844], [0.20710745, -0.12665261], [-0.08198895, 0.22326154], [-0.77471393, -0.73122877], [-0.18502127, 0.32624513], [-0.03133733, -0.17500992], [0.28585237, -0.01097354], [-0.19126464, 0.06222228], [-0.0303282, -0.16023481], [-0.34069192, -0.8288299], [-0.20600465, 0.09318836], [0.29411194, -0.93214977], [-0.7150941, 0.74259764], [0.13344735, 0.17136675], [0.31582892, 1.0810335], [-0.22873795, 0.98337173], [-0.88140666, 0.05909261], [-0.21215424, -0.05584779]], dtype=np.float32)
+    y = np.array([[0.0, 1.0], [0.0, 1.0], [0.0, 1.0], [1.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 0.0], [1.0, 0.0], [1.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0], [0.0, 1.0], [0.0, 1.0], [1.0, 0.0]], dtype=np.float32)
+    return (X, y)
+
+def test_weight_update_svm():
+    np.random.seed(1234)
+    (X, y) = get_data()
+    [W, err, Out] = multi_layer_nn_tensorflow(X, y, [8, 2], ['relu', 'linear'], alpha=0.01, batch_size=32, epochs=1, loss='svm')
+    return 0
+
+
+res = test_weight_update_svm()
