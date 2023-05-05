@@ -1,8 +1,3 @@
-# Raut, Shiska
-# 1001_526_329
-# 2023_02_26
-# Assignment_01_01
-
 import numpy as np
 
 # returns a weight matrix of size [r, c + 1] (including bias a the first column)

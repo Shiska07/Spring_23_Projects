@@ -1,9 +1,3 @@
-# Raut, Shiska
-# 1001_526_329
-# 2023_04_16
-# Assignment_04_01
-
-
 # %tensorflow_version 2.x
 import os
 import tensorflow as tf

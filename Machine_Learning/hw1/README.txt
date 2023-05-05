@@ -1,6 +1,3 @@
-Name: Shiska Raut
-ID: 1001526329
-
 Data files:
 1. data.txt : complete data file for hw1
 2. 2_a_train.txt: Training data for question 2 a). This files was also used in 2 b) to test implementation.

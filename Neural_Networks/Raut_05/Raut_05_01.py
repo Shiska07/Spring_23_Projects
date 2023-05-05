@@ -1,8 +1,3 @@
-# Raut, Shiska
-# 1001_526_329
-# 2023_05_01
-# Assignment_05_01
-
 import os
 import tensorflow as tf
 import numpy as np

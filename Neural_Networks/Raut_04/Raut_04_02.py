@@ -1,8 +1,3 @@
-# Raut, Shiska
-# 1001_526_329
-# 2023_04_16
-# Assignment_04_02
-
 import pytest
 import tensorflow as tf
 import keras

@@ -1,6 +1,3 @@
-# Name: Shiska Raut
-# ID: 1001526329
-
 # import libraries
 import math
 import os
