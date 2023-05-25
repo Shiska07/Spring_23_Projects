@@ -34,7 +34,7 @@ def get_tokens(qstring):
     # return final list of tokens with stemmed tokens and stopwords removed
     return tokens_stp_stm
 
-# creates a vocabulary list using collection and search query
+# creates a vocabulary list using collections/doc corpus
 def get_vocab(collection):
 
     # create a list of document strings
@@ -195,35 +195,6 @@ for token in vocab_list:
     tokens_weighted_idf[token] = getidf(token)
 
 
-# returns the tf-tdf weight of a specific token w.r.t a specific document
-def getweight(f_name, tk):
-    if type(f_name) != str:
-        f_name = str(f_name)
-
-    if type(tk) != str:
-        tk = str(tk)
-
-    token_tfidf_val = float(0)
-    if f_name in docs_weighted_tfs.keys():
-        if tk in tokens_for_each_doc[f_name]:
-
-            # get index of the given token from vocab_list
-            token_idx = vocab_list.index(tk)
-
-            # get tfidf vector for the file using weighted doc tfs and weighted token idfs
-            file_tfidf_vec = get_tfidf_vec(docs_weighted_tfs[f_name], list(tokens_weighted_idf.values()))
-
-            # get tfidf value for that specific token
-            token_tfidf_val = file_tfidf_vec[token_idx]
-
-        else:
-            print(f'token "{tk}" does not exist in the the file {f_name}.\n')
-    else:
-        print(f'file "{f_name}" does not exist in the corpus.\n')
-
-    return token_tfidf_val
-
-
 # returns the name and score of the highest matching document
 def query(qstring):
 
@@ -256,34 +227,17 @@ def query(qstring):
         # calculate cosine similarity of query with all docs
         cosine_sim[f_name] = get_cosine_similarity(tfidf_doc_norm, tfidf_query_norm)
 
-    # get filename with maximum similarity
-    max_sim_f_name = ''
-    max_sim_val = float(0)
-    for f_name, sim_val in cosine_sim.items():
-        if sim_val > max_sim_val:
-            max_sim_f_name = f_name
-            max_sim_val = sim_val
+    # sort documents in decreasing order of cosing similarity
+    sorted_dict = sorted(cosine_sim.items(), key = lambda x:x[1], reverse = True)
 
-    if max_sim_f_name == '':
-        print(f'No matches found for query "{qstring}".\n')
+    # print filenames and similarity values
+    print(f'Similarity values for the given query:\n')
+    for f_name, sim_val in sorted_dict:
+        print(f'{f_name}: {sim_val:0.3f}')
+    print('\n')
 
-    # return filename and similarity value
-    return max_sim_f_name, max_sim_val
+# get query string from user
+qstr = str(input('Provide query string: '))
 
-print("%.12f" % getidf('british'))
-print("%.12f" % getidf('union'))
-print("%.12f" % getidf('war'))
-print("%.12f" % getidf('power'))
-print("%.12f" % getidf('great'))
-print("--------------")
-print("%.12f" % getweight('02_washington_1793.txt','arrive'))
-print("%.12f" % getweight('07_madison_1813.txt','war'))
-print("%.12f" % getweight('12_jackson_1833.txt','union'))
-print("%.12f" % getweight('09_monroe_1821.txt','great'))
-print("%.12f" % getweight('05_jefferson_1805.txt','public'))
-print("--------------")
-print("(%s, %.12f)" % query("pleasing people"))
-print("(%s, %.12f)" % query("british war"))
-print("(%s, %.12f)" % query("false public"))
-print("(%s, %.12f)" % query("people institutions"))
-print("(%s, %.12f)" % query("violated willingly"))
+# display results
+query(qstr)
